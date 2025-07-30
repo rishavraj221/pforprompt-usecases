@@ -5,9 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "asyncpraw>=7.8.1",
     "fastapi>=0.116.1",
     "httpx>=0.28.1",
+    "langchain-community>=0.3.27",
+    "langchain-core>=0.3.72",
+    "langchain-openai>=0.3.28",
+    "langgraph>=0.6.1",
     "motor>=3.7.1",
+    "nltk>=3.9.1",
     "praw>=7.8.1",
     "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",

@@ -1,0 +1,15 @@
+# Core dependencies for idea refinement engine
+langchain-openai>=0.1.0
+langgraph>=0.1.0
+langchain-core>=0.1.0
+
+# Reddit integration dependencies
+praw>=7.7.0
+textblob>=0.17.1
+vaderSentiment>=3.3.2
+
+# Additional dependencies for sentiment analysis
+nltk>=3.8.1
+
+# Environment management
+python-dotenv>=1.0.0 

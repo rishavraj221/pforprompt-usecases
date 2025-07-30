@@ -1,19 +1,10 @@
-# from reddit_prompt_problem_finder_and_solver.finder import fetch_reddit_posts
-
-# if __name__ == "__main__":
-
-#     report_file_path = "/Users/rishavraj/Downloads/Codes/pforprompts-usecases/reddit_prompt_problem_finder_and_solver/analysis/3.md"
-
-#     fetch_reddit_posts(report_file_path=report_file_path)
-
 """
 Example usage of the modular Idea Refinement Engine
 """
 
 import asyncio
 import json
-from idea_refinement_engine.pipeline import IdeaValidationPipeline
-from settings import OPENAI_API_KEY
+from pipeline import IdeaValidationPipeline
 
 
 async def example_usage():
@@ -24,7 +15,9 @@ async def example_usage():
     
     # Example ideas to test
     test_ideas = [
-        "I built an app where users can share the problems with their prompt and llm hallucinations, it is at very initial stage and i want to engage it with the ai agents which will look for open source community forums and prepare the difficult questions for me to answer",
+        "I want to create a mobile app that helps people find local restaurants",
+        "I'm thinking of building a platform for remote team collaboration",
+        "I want to make an AI-powered personal finance advisor"
     ]
     
     for i, idea in enumerate(test_ideas, 1):
@@ -34,10 +27,14 @@ async def example_usage():
         print(f"💡 Idea: {idea}")
         
         # Run the validation pipeline
-        result = await pipeline.validate_idea(idea)
+        result = await pipeline.validate_idea(idea, save_report=True)
         
         if result["success"]:
             print("\n✅ VALIDATION COMPLETED")
+            
+            if result.get("report_filepath"):
+                print(f"\n📄 Report saved to: {result['report_filepath']}")
+            
             print("\n📊 FINAL REPORT:")
             print("-" * 40)
             print(result["final_report"])
