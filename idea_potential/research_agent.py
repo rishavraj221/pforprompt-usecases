@@ -4,7 +4,7 @@ from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from collections import Counter
 import time
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 from idea_potential.base_agent import BaseAgent
 from idea_potential.config import (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, SUBREDDIT_CATEGORIES, 
                                    KEYWORD_CATEGORY_MAPPING, FALLBACK_SUBREDDITS, MAX_REDDIT_POSTS, 
@@ -32,44 +32,129 @@ class ResearchAgent(BaseAgent):
             except Exception as e:
                 print(f"Failed to initialize Reddit client: {e}")
     
+    def generate_relevant_keywords_and_subreddits(self, idea_data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
+        """
+        Generate relevant keywords (max 4) and subreddits (max 4) using LLM analysis
+        instead of hardcoded values.
+        """
+        idea_text = idea_data.get('refined_idea', '')
+        target_market = idea_data.get('target_market', '')
+        
+        prompt = f"""
+        Analyze this business idea and generate the most relevant keywords and subreddits for market research:
+
+        BUSINESS IDEA: {idea_text}
+        TARGET MARKET: {target_market}
+
+        Generate:
+        1. MAXIMUM 5 highly specific keywords that would help find Reddit discussions about:
+           - Similar problems or pain points
+           - Related tools, platforms, or solutions
+           - User feedback and complaints
+           - Industry trends and discussions
+
+        2. MAXIMUM 5 specific subreddit names (without r/ prefix) where people would discuss:
+           - Similar problems or needs
+           - Related technologies or tools
+           - Industry-specific discussions
+           - Target market communities
+
+        Focus on specific, actionable terms that would appear in real Reddit discussions.
+        Choose subreddits that are active and relevant to the target market.
+
+        Return as JSON:
+        {{
+            "keywords": ["keyword1", "keyword2", "keyword3", "keyword4"],
+            "subreddits": ["subreddit1", "subreddit2", "subreddit3", "subreddit4"]
+        }}
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert in market research and Reddit analysis. Generate specific, relevant keywords and subreddits that would help validate business ideas through Reddit research. Be precise and focus on active, relevant communities."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        try:
+            response = self.call_llm(messages, temperature=0.3)
+            result = self.parse_json_response(response)
+            
+            if isinstance(result, dict):
+                keywords = result.get('keywords', [])
+                subreddits = result.get('subreddits', [])
+                
+                # Ensure we don't exceed limits
+                keywords = keywords[:4] if keywords else []
+                subreddits = subreddits[:4] if subreddits else []
+                
+                print(f"Generated keywords: {keywords}")
+                print(f"Generated subreddits: {subreddits}")
+                
+                return keywords, subreddits
+                
+        except Exception as e:
+            print(f"Error generating keywords and subreddits: {e}")
+        
+        # Fallback to existing method if LLM generation fails
+        print("Falling back to existing keyword and subreddit selection method")
+        
+        # Use the original category-based approach for fallback
+        idea_text = idea_data.get('refined_idea', '').lower()
+        target_market = idea_data.get('target_market', '').lower()
+        combined_text = f"{idea_text} {target_market}"
+        
+        # Extract keywords from the idea for fallback
+        keywords = self.extract_keywords_from_idea(combined_text)[:4]
+        
+        # Use fallback subreddits
+        subreddits = FALLBACK_SUBREDDITS[:4]
+        
+        return keywords, subreddits
+
     def select_relevant_subreddits(self, idea_data: Dict[str, Any]) -> List[str]:
         """Dynamically select relevant subreddits based on the business idea"""
         
-        idea_text = idea_data.get('refined_idea', '').lower()
-        target_market = idea_data.get('target_market', '').lower()
+        # Use the new LLM-based method for subreddit selection
+        _, subreddits = self.generate_relevant_keywords_and_subreddits(idea_data)
         
-        # Combine idea text and target market for analysis
-        combined_text = f"{idea_text} {target_market}"
+        # If LLM method didn't return enough subreddits, fall back to category-based selection
+        if len(subreddits) < 2:
+            idea_text = idea_data.get('refined_idea', '').lower()
+            target_market = idea_data.get('target_market', '').lower()
+            
+            # Combine idea text and target market for analysis
+            combined_text = f"{idea_text} {target_market}"
+            
+            # Extract keywords from the idea
+            keywords = self.extract_keywords_from_idea(combined_text)
+            
+            # Map keywords to categories
+            identified_categories = set()
+            for keyword in keywords:
+                if keyword in KEYWORD_CATEGORY_MAPPING:
+                    identified_categories.add(KEYWORD_CATEGORY_MAPPING[keyword])
+            
+            # If no categories found, try to identify categories from the idea text
+            if not identified_categories:
+                identified_categories = self.identify_categories_from_text(combined_text)
+            
+            # Collect subreddits from identified categories
+            selected_subreddits = set()
+            for category in identified_categories:
+                if category in SUBREDDIT_CATEGORIES:
+                    selected_subreddits.update(SUBREDDIT_CATEGORIES[category])
+            
+            # If still no subreddits found, use fallback
+            if not selected_subreddits:
+                print("No specific categories identified, using fallback subreddits")
+                selected_subreddits = set(FALLBACK_SUBREDDITS)
+            
+            # Limit to top 10 most relevant subreddits
+            final_subreddits = list(selected_subreddits)[:10]
+            
+            print(f"Selected subreddits for analysis: {final_subreddits}")
+            return final_subreddits
         
-        # Extract keywords from the idea
-        keywords = self.extract_keywords_from_idea(combined_text)
-        
-        # Map keywords to categories
-        identified_categories = set()
-        for keyword in keywords:
-            if keyword in KEYWORD_CATEGORY_MAPPING:
-                identified_categories.add(KEYWORD_CATEGORY_MAPPING[keyword])
-        
-        # If no categories found, try to identify categories from the idea text
-        if not identified_categories:
-            identified_categories = self.identify_categories_from_text(combined_text)
-        
-        # Collect subreddits from identified categories
-        selected_subreddits = set()
-        for category in identified_categories:
-            if category in SUBREDDIT_CATEGORIES:
-                selected_subreddits.update(SUBREDDIT_CATEGORIES[category])
-        
-        # If still no subreddits found, use fallback
-        if not selected_subreddits:
-            print("No specific categories identified, using fallback subreddits")
-            selected_subreddits = set(FALLBACK_SUBREDDITS)
-        
-        # Limit to top 10 most relevant subreddits
-        final_subreddits = list(selected_subreddits)[:10]
-        
-        print(f"Selected subreddits for analysis: {final_subreddits}")
-        return final_subreddits
+        return subreddits
     
     def extract_keywords_from_idea(self, text: str) -> List[str]:
         """Extract relevant keywords from the idea text"""
@@ -222,57 +307,64 @@ class ResearchAgent(BaseAgent):
         return {"error": "Failed to analyze chunk"}
     
     def generate_search_keywords(self, idea_data: Dict[str, Any]) -> List[str]:
-        """Generate relevant search keywords from the clarified idea"""
+        """Generate relevant search keywords from the clarified idea using LLM"""
         
-        idea_text = idea_data.get('refined_idea', '')
-        target_market = idea_data.get('target_market', '')
+        # Use the new LLM-based method for keyword generation
+        keywords, _ = self.generate_relevant_keywords_and_subreddits(idea_data)
         
-        # Extract core concepts from the idea
-        core_concepts = self.extract_core_concepts(idea_text, target_market)
-        
-        prompt = f"""
-        Based on this business idea, generate 15-20 highly specific and relevant search keywords for Reddit research:
+        # If LLM method didn't return enough keywords, fall back to existing method
+        if len(keywords) < 2:
+            idea_text = idea_data.get('refined_idea', '')
+            target_market = idea_data.get('target_market', '')
+            
+            # Extract core concepts from the idea
+            core_concepts = self.extract_core_concepts(idea_text, target_market)
+            
+            prompt = f"""
+            Based on this business idea, generate 15-20 highly specific and relevant search keywords for Reddit research:
 
-        IDEA: {idea_text}
-        TARGET MARKET: {target_market}
-        CORE CONCEPTS: {core_concepts}
+            IDEA: {idea_text}
+            TARGET MARKET: {target_market}
+            CORE CONCEPTS: {core_concepts}
 
-        Generate keywords that would help find:
-        1. People discussing similar problems or needs
-        2. Market pain points and frustrations
-        3. Related tools, platforms, or solutions
-        4. User feedback, complaints, and feature requests
-        5. Industry trends, discussions, and debates
-        6. Competitor analysis and alternatives
-        7. Technical challenges and implementation issues
+            Generate keywords that would help find:
+            1. People discussing similar problems or needs
+            2. Market pain points and frustrations
+            3. Related tools, platforms, or solutions
+            4. User feedback, complaints, and feature requests
+            5. Industry trends, discussions, and debates
+            6. Competitor analysis and alternatives
+            7. Technical challenges and implementation issues
 
-        Focus on specific, actionable keywords that would appear in Reddit discussions.
-        Include both broad and niche terms.
-        Return as JSON array of strings:
-        ["keyword1", "keyword2", "keyword3", ...]
-        """
+            Focus on specific, actionable keywords that would appear in Reddit discussions.
+            Include both broad and niche terms.
+            Return as JSON array of strings:
+            ["keyword1", "keyword2", "keyword3", ...]
+            """
+            
+            messages = [
+                {"role": "system", "content": "You are an expert in market research and keyword generation for business idea validation. Generate specific, relevant keywords that would help find Reddit discussions about similar problems, needs, and solutions."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self.call_llm(messages, temperature=0.4)
+            result = self.parse_json_response(response)
+            print(f"research search keywords result: {result}")
+            
+            if isinstance(result, list):
+                # Remove duplicates and limit
+                unique_keywords = list(dict.fromkeys(result))  # Preserves order
+                self.log_activity("Generated search keywords", len(unique_keywords))
+                return unique_keywords[:20]
+            
+            # Fallback keywords based on core concepts
+            fallback_keywords = []
+            for concept in core_concepts[:5]:
+                fallback_keywords.extend([concept, f"{concept} problem", f"{concept} solution", f"{concept} tool"])
+            
+            return fallback_keywords[:15]
         
-        messages = [
-            {"role": "system", "content": "You are an expert in market research and keyword generation for business idea validation. Generate specific, relevant keywords that would help find Reddit discussions about similar problems, needs, and solutions."},
-            {"role": "user", "content": prompt}
-        ]
-        
-        response = self.call_llm(messages, temperature=0.4)
-        result = self.parse_json_response(response)
-        print(f"research search keywords result: {result}")
-        
-        if isinstance(result, list):
-            # Remove duplicates and limit
-            unique_keywords = list(dict.fromkeys(result))  # Preserves order
-            self.log_activity("Generated search keywords", len(unique_keywords))
-            return unique_keywords[:20]
-        
-        # Fallback keywords based on core concepts
-        fallback_keywords = []
-        for concept in core_concepts[:5]:
-            fallback_keywords.extend([concept, f"{concept} problem", f"{concept} solution", f"{concept} tool"])
-        
-        return fallback_keywords[:15]
+        return keywords
     
     def extract_core_concepts(self, idea_text: str, target_market: str) -> List[str]:
         """Extract core concepts from the idea for better keyword generation"""
@@ -312,13 +404,16 @@ class ResearchAgent(BaseAgent):
         concepts = [word for word in words if word not in stop_words and len(word) > 3]
         return list(set(concepts))[:8]
     
-    def search_reddit_posts(self, keywords: List[str], idea_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Search Reddit posts using the generated keywords and dynamically selected subreddits"""
+    def search_reddit_posts(self, keywords: List[str], idea_data: Dict[str, Any], subreddits: List[str] = None) -> List[Dict[str, Any]]:
+        """Search Reddit posts using the generated keywords and subreddits"""
         if not self.reddit:
             return []
         
-        # Get relevant subreddits based on the idea
-        relevant_subreddits = self.select_relevant_subreddits(idea_data)
+        # Use provided subreddits or fall back to dynamic selection
+        if subreddits is None:
+            relevant_subreddits = self.select_relevant_subreddits(idea_data)
+        else:
+            relevant_subreddits = subreddits
         
         all_posts = []
         
@@ -545,11 +640,11 @@ class ResearchAgent(BaseAgent):
     def conduct_research(self, idea_data: Dict[str, Any]) -> Dict[str, Any]:
         """Main method to conduct comprehensive market research with chunking and quantitative analysis"""
         
-        # Generate search keywords
-        keywords = self.generate_search_keywords(idea_data)
+        # Generate search keywords and subreddits using LLM
+        keywords, subreddits = self.generate_relevant_keywords_and_subreddits(idea_data)
         
-        # Search Reddit posts using dynamically selected subreddits
-        posts = self.search_reddit_posts(keywords, idea_data)
+        # Search Reddit posts using the generated keywords and subreddits
+        posts = self.search_reddit_posts(keywords, idea_data, subreddits)
         
         # Check if dataset is large and needs chunking
         if len(posts) > LARGE_DATASET_THRESHOLD:
@@ -609,6 +704,7 @@ class ResearchAgent(BaseAgent):
         # Store research data with references
         self.research_data = {
             'keywords_used': keywords,
+            'subreddits_used': subreddits,
             'posts_collected': posts,
             'insights': combined_insights,
             'references': self.references,

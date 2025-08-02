@@ -709,11 +709,10 @@ class BusinessIdeaReportGenerator:
         return report
 
 # Example usage
-def main():
+def main(json_file_path, output_file_path):
     """Example usage of the BusinessIdeaReportGenerator."""
     
     # Sample data (you would load your actual JSON data here)
-    json_file_path = "idea_potential/reports/idea_analysis_results_20250802_160019.json"
     with open(json_file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -724,8 +723,5 @@ def main():
     # Print report
     print(report)
     
-    # Save to file
-    generator.save_report(data, f"idea_potential/reports/idea_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md")
-
-if __name__ == "__main__":
-    main()
+     # Save to file
+    generator.save_report(data, output_file_path)
