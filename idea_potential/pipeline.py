@@ -11,22 +11,41 @@ from datetime import datetime
 class IdeaPotentialPipeline:
     """Main pipeline that orchestrates all agents for idea potential analysis"""
     
-    def __init__(self):
-        self.clarifier = ClarifierAgent()
+    def __init__(self, use_roadmap_agent: bool = False, use_refiner_agent: bool = False, use_suggester_agent: bool = False):
+        # Must-have agents (always initialized)
+        self.clarifier = ClarifierAgent(use_suggester_agent=use_suggester_agent)
         self.research = ResearchAgent()
         self.validator = ValidationAgent()
-        self.roadmap_builder = RoadmapAgent()
         self.report_builder = ReportAgent()
-        self.refiner = RefinerAgent()
+        
+        # Optional agents (only initialized if selected)
+        self.roadmap_builder = RoadmapAgent() if use_roadmap_agent else None
+        self.refiner = RefinerAgent() if use_refiner_agent else None
         
         self.pipeline_data = {}
         self.current_step = "initialized"
+        self.agent_config = {
+            "use_roadmap_agent": use_roadmap_agent,
+            "use_refiner_agent": use_refiner_agent,
+            "use_suggester_agent": use_suggester_agent
+        }
         
     def start_analysis(self, idea: str) -> Dict[str, Any]:
         """Start the idea potential analysis pipeline"""
         
         print("🚀 Starting Idea Potential Analysis Pipeline")
         print(f"📝 Idea: {idea}")
+        print("=" * 50)
+        
+        # Display agent configuration
+        print("\n🔧 Agent Configuration:")
+        print(f"  • Clarifier Agent: ✅ (Required)")
+        print(f"  • Research Agent: ✅ (Required)")
+        print(f"  • Validation Agent: ✅ (Required)")
+        print(f"  • Report Agent: ✅ (Required)")
+        print(f"  • Suggester Agent: {'✅ (Enabled)' if self.agent_config['use_suggester_agent'] else '❌ (Disabled)'}")
+        print(f"  • Roadmap Agent: {'✅ (Enabled)' if self.agent_config['use_roadmap_agent'] else '❌ (Disabled)'}")
+        print(f"  • Refiner Agent: {'✅ (Enabled)' if self.agent_config['use_refiner_agent'] else '❌ (Disabled)'}")
         print("=" * 50)
         
         # Step 1: Clarify the idea
@@ -50,12 +69,16 @@ class IdeaPotentialPipeline:
         if "error" in validation_result:
             return {"error": f"Validation failed: {validation_result['error']}"}
         
-        # Step 4: Build development roadmap
-        print("\n🗓️ Step 4: Building development roadmap...")
-        roadmap_result = self.create_roadmap(clarification_result, validation_result)
-        
-        if "error" in roadmap_result:
-            return {"error": f"Roadmap creation failed: {roadmap_result['error']}"}
+        # Step 4: Build development roadmap (optional)
+        roadmap_result = {"error": "Roadmap agent not enabled"}
+        if self.agent_config['use_roadmap_agent']:
+            print("\n🗓️ Step 4: Building development roadmap...")
+            roadmap_result = self.create_roadmap(clarification_result, validation_result)
+            
+            if "error" in roadmap_result:
+                return {"error": f"Roadmap creation failed: {roadmap_result['error']}"}
+        else:
+            print("\n🗓️ Step 4: Skipping roadmap (agent not enabled)")
         
         # Step 5: Generate comprehensive report
         print("\n📋 Step 5: Generating comprehensive report...")
@@ -64,9 +87,13 @@ class IdeaPotentialPipeline:
         if "error" in report_result:
             return {"error": f"Report generation failed: {report_result['error']}"}
         
-        # Step 6: Refine and validate report
-        print("\n🔧 Step 6: Refining and validating report...")
-        refinement_result = self.refine_report(report_result, clarification_result, research_result, validation_result)
+        # Step 6: Refine and validate report (optional)
+        refinement_result = {"error": "Refiner agent not enabled"}
+        if self.agent_config['use_refiner_agent']:
+            print("\n🔧 Step 6: Refining and validating report...")
+            refinement_result = self.refine_report(report_result, clarification_result, research_result, validation_result)
+        else:
+            print("\n🔧 Step 6: Skipping refinement (agent not enabled)")
         
         # Compile final results
         final_result = self.compile_final_results(
@@ -80,7 +107,7 @@ class IdeaPotentialPipeline:
     def clarify_idea(self, idea: str) -> Dict[str, Any]:
         """Step 1: Clarify the idea through targeted questions"""
         
-        # Analyze the initial idea
+        # Analyze the initial idea (now just prepares for dynamic questioning)
         analysis_result = self.clarifier.analyze_initial_idea(idea)
         
         if "error" in analysis_result:
@@ -125,6 +152,9 @@ class IdeaPotentialPipeline:
     def create_roadmap(self, clarification_data: Dict[str, Any], validation_data: Dict[str, Any]) -> Dict[str, Any]:
         """Step 4: Create development roadmap"""
         
+        if self.roadmap_builder is None:
+            return {"error": "Roadmap agent not enabled"}
+        
         # Generate roadmap report
         roadmap_result = self.roadmap_builder.generate_roadmap_report(clarification_data, validation_data)
         
@@ -161,6 +191,9 @@ class IdeaPotentialPipeline:
     def refine_report(self, report_data: Dict[str, Any], clarification_data: Dict[str, Any], 
                      research_data: Dict[str, Any], validation_data: Dict[str, Any]) -> Dict[str, Any]:
         """Step 6: Refine and validate the final report"""
+        
+        if self.refiner is None:
+            return {"error": "Refiner agent not enabled"}
         
         # Refine the report
         refinement_result = self.refiner.refine_report(
@@ -326,73 +359,107 @@ class IdeaPotentialPipeline:
         if "error" in clarification_result:
             return {"error": f"Clarification failed: {clarification_result['error']}"}
         
-        # Ask clarification questions
-        questions = clarification_result.get('critical_questions', [])
+        # Start dynamic questioning process
+        print(f"\n📋 I'll ask you questions one by one to better understand your idea:")
+        print("💡 Each question will be generated based on your previous answers.")
+        print("🔄 The conversation will continue until we have enough information.")
         
-        if questions:
-            print(f"\n📋 I need to ask you {len(questions)} critical questions to better understand your idea:")
+        question_count = 0
+        user_response = None
+        while True:
+            question_count += 1
             
-            for i, question_data in enumerate(questions, 1):
-                print(f"\n❓ Question {i}: {question_data['question']}")
-                print(f"💡 Why this matters: {question_data['reason']}")
+            # Get the next question
+            if question_count == 1:
+                # First question - no previous response
+                question_data = self.clarifier.generate_next_question()
+            else:
+                # Get the next question based on previous response
+                question_data = self.clarifier.generate_next_question(user_response)
+            
+            if "error" in question_data:
+                print(f"❌ Error getting question: {question_data['error']}")
+                break
+            
+            # Check if we're done with questions
+            if question_data.get("status") == "clarified":
+                print(f"\n✅ Clarification complete!")
+                final_clarification = question_data
+                break
+            
+            # Display the question
+            print(f"\n❓ Question {question_count}: {question_data['question']}")
+            print(f"💡 Why this matters: {question_data['reason']}")
+            print(f"📊 Category: {question_data['category'].replace('_', ' ').title()}")
+            
+            # Get suggestions for this question if suggester agent is enabled
+            suggestions = []
+            if self.clarifier.suggester is not None:
+                context = {
+                    "idea": idea,
+                    "question": question_data['question'],
+                    "category": question_data['category'],
+                    "previous_questions": self.clarifier.questions_asked,
+                    "previous_responses": self.clarifier.user_responses
+                }
                 
-                # Get suggestions for this question
-                question_with_suggestions = self.clarifier.ask_next_question()
+                suggestions_result = self.clarifier.suggester.generate_suggestions(
+                    question=question_data['question'],
+                    context=context,
+                    agent_type="clarifier"
+                )
+                suggestions = suggestions_result.get("suggestions", []) if "error" not in suggestions_result else []
+            
+            # Display suggestions if available
+            if suggestions:
+                print(f"\n💡 Suggested answers:")
+                for j, suggestion in enumerate(suggestions, 1):
+                    print(f"   {j}. {suggestion['text']}")
+                    print(f"      💭 {suggestion['reasoning']}")
+                print(f"   {len(suggestions) + 1}. Type your own answer")
+            
+            # Get user input
+            while True:
+                user_input = input("Your choice (number or your answer): ").strip()
                 
-                if "error" in question_with_suggestions:
-                    print(f"❌ Error getting question: {question_with_suggestions['error']}")
-                    break
-                
-                # Display suggestions if available
-                suggestions = question_with_suggestions.get("suggestions", [])
-                if suggestions:
-                    print(f"\n💡 Suggested answers:")
-                    for j, suggestion in enumerate(suggestions, 1):
-                        print(f"   {j}. {suggestion['text']}")
-                        print(f"      💭 {suggestion['reasoning']}")
-                    print(f"   {len(suggestions) + 1}. Type your own answer")
-                
-                # Get user input
-                while True:
-                    user_input = input("Your choice (number or your answer): ").strip()
-                    
-                    # Check if user selected a suggestion
-                    if user_input.isdigit():
-                        choice = int(user_input)
-                        if 1 <= choice <= len(suggestions):
-                            answer = suggestions[choice - 1]['text']
-                            print(f"✅ Selected: {answer}")
-                            break
-                        elif choice == len(suggestions) + 1:
-                            # User wants to type their own answer
-                            answer = input("Your answer: ").strip()
-                            if answer:
-                                break
-                            else:
-                                print("⚠️ Please provide an answer")
-                        else:
-                            print(f"⚠️ Please enter a number between 1 and {len(suggestions) + 1}")
-                    else:
-                        # User typed their own answer
-                        answer = user_input
+                # Check if user selected a suggestion
+                if user_input.isdigit() and suggestions:
+                    choice = int(user_input)
+                    if 1 <= choice <= len(suggestions):
+                        answer = suggestions[choice - 1]['text']
+                        print(f"✅ Selected: {answer}")
+                        break
+                    elif choice == len(suggestions) + 1:
+                        # User wants to type their own answer
+                        answer = input("Your answer: ").strip()
                         if answer:
                             break
                         else:
                             print("⚠️ Please provide an answer")
-                
-                if not answer:
-                    print("⚠️ No answer provided, continuing...")
-                    answer = "No specific answer provided"
-                
-                # Process the answer (this will move to the next question)
-                next_question = self.clarifier.ask_next_question(answer)
-                
-                if "error" in next_question:
-                    print(f"❌ Error processing answer: {next_question['error']}")
-                    break
-        
-        # Get final clarification summary
-        final_clarification = self.clarifier.generate_clarification_summary()
+                    else:
+                        print(f"⚠️ Please enter a number between 1 and {len(suggestions) + 1}")
+                else:
+                    # User typed their own answer
+                    answer = user_input
+                    if answer:
+                        break
+                    else:
+                        print("⚠️ Please provide an answer")
+            
+            if not answer:
+                print("⚠️ No answer provided, continuing...")
+                answer = "No specific answer provided"
+            
+            print(f"✅ Your answer: {answer}")
+            
+            # Store the user response for the next iteration
+            user_response = answer
+            
+            # Check if user wants to end the conversation
+            if answer.lower() in ["that's all", "that's everything", "i think that covers it", "that should be enough", "done", "finish"]:
+                print("\n🔄 Generating final summary...")
+                final_clarification = self.clarifier.generate_clarification_summary()
+                break
         
         if "error" in final_clarification:
             return {"error": f"Failed to generate clarification summary: {final_clarification['error']}"}
@@ -400,6 +467,7 @@ class IdeaPotentialPipeline:
         print(f"\n✅ Clarification complete!")
         print(f"📝 Refined Idea: {final_clarification.get('refined_idea', 'Unknown')}")
         print(f"🎯 Target Market: {final_clarification.get('target_market', 'Unknown')}")
+        print(f"📊 Questions asked: {len(self.clarifier.questions_asked)}")
         
         # Continue with full analysis
         print("\n🚀 Starting full analysis...")
@@ -411,9 +479,21 @@ class IdeaPotentialPipeline:
             # Continue with remaining steps
             research_result = self.conduct_research(final_clarification)
             validation_result = self.create_validation_matrix(final_clarification, research_result)
-            roadmap_result = self.create_roadmap(final_clarification, validation_result)
+            
+            roadmap_result = {"error": "Roadmap agent not enabled"}
+            if self.agent_config['use_roadmap_agent']:
+                roadmap_result = self.create_roadmap(final_clarification, validation_result)
+                if "error" in roadmap_result:
+                    print(f"❌ Roadmap creation failed: {roadmap_result['error']}")
+                    roadmap_result = {"error": "Roadmap agent failed to generate report"}
+            
             report_result = self.generate_report(final_clarification, research_result, validation_result, roadmap_result)
-            refinement_result = self.refine_report(report_result, final_clarification, research_result, validation_result)
+            refinement_result = {"error": "Refiner agent not enabled"}
+            if self.agent_config['use_refiner_agent']:
+                refinement_result = self.refine_report(report_result, final_clarification, research_result, validation_result)
+                if "error" in refinement_result:
+                    print(f"❌ Refinement failed: {refinement_result['error']}")
+                    refinement_result = {"error": "Refiner agent failed to refine report"}
             
             # Compile final results
             final_result = self.compile_final_results(

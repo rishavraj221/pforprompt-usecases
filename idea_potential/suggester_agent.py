@@ -52,9 +52,10 @@ class SuggesterAgent(BaseAgent):
         Please respond with valid JSON format containing:
         - suggestions: Array of suggestion objects with suggestion, context, and category fields
         - context_analysis: Brief description of what context was considered
-        - recommendation_priority: Priority recommendation
+        - recommendation_priority: Priority recommendation as a string (e.g., "high", "medium", "low", or descriptive text)
 
         For the category field, use one of: "specific", "general", "detailed", "brief"
+        IMPORTANT: recommendation_priority must be a string, not a number.
         """
         
         messages = [
@@ -79,7 +80,7 @@ class SuggesterAgent(BaseAgent):
                     "context_used": result.context_analysis,
                     "agent_type": agent_type,
                     "question": question,
-                    "recommendation_priority": result.recommendation_priority
+                    "recommendation_priority": str(result.recommendation_priority) if result.recommendation_priority else "medium"
                 }
                 
                 # Add to context history
@@ -122,6 +123,12 @@ class SuggesterAgent(BaseAgent):
                             "category": "general"
                         })
                 result["suggestions"] = formatted_suggestions
+            
+            # Ensure recommendation_priority is a string
+            if "recommendation_priority" in result:
+                result["recommendation_priority"] = str(result["recommendation_priority"])
+            else:
+                result["recommendation_priority"] = "medium"
             
             # Add to context history
             self.context_history.append({

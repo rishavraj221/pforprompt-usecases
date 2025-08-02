@@ -2,38 +2,182 @@ from idea_potential.base_agent import BaseAgent
 from idea_potential.suggester_agent import SuggesterAgent
 from typing import Dict, List, Optional, Any
 from idea_potential.structured_outputs import (
-    IdeaAnalysisResponse, ClarificationSummaryResponse, UserPersona
+    IdeaAnalysisResponse, ClarificationSummaryResponse, UserPersona, IndividualQuestionResponse
 )
 
 class ClarifierAgent(BaseAgent):
     """Agent responsible for clarifying and understanding the user's idea through targeted questions"""
     
-    def __init__(self):
+    def __init__(self, use_suggester_agent: bool = False):
         super().__init__('clarifier')
         self.questions_asked = []
         self.user_responses = []
         self.idea_context = {}
-        self.suggester = SuggesterAgent()
+        self.suggester = SuggesterAgent() if use_suggester_agent else None
+        self.original_idea = ""
+        self.conversation_history = []
         
     def analyze_initial_idea(self, idea: str) -> Dict[str, Any]:
-        """Analyze the initial idea and determine what questions to ask"""
+        """Analyze the initial idea and prepare for dynamic questioning"""
         if not self.validate_input(idea):
             return {"error": "Invalid idea input"}
-            
+        
+        self.original_idea = idea
+        self.idea_context = {
+            "original_idea": idea,
+            "analysis": "",
+            "idea_summary": "",
+            "conversation_context": []
+        }
+        
+        # Store initial context
+        self.conversation_history.append({
+            "role": "system",
+            "content": f"Initial idea: {idea}"
+        })
+        
+        self.log_activity("Analyzed initial idea", idea)
+        return self.idea_context
+    
+    def generate_next_question(self, user_response: str = None) -> Dict[str, Any]:
+        """Dynamically generate the next question based on previous responses and conversation context"""
+        
+        # Add user response to context if provided
+        if user_response:
+            self.user_responses.append(user_response)
+            self.conversation_history.append({
+                "role": "user", 
+                "content": user_response
+            })
+        
+        # If this is the first question, generate it based on the original idea
+        if len(self.questions_asked) == 0:
+            return self._generate_first_question()
+        
+        # Check if we have enough information to generate a summary
+        if self._should_generate_summary():
+            return self.generate_clarification_summary()
+        
+        # Generate the next question based on conversation context
+        return self._generate_follow_up_question()
+    
+    def _generate_first_question(self) -> Dict[str, Any]:
+        """Generate the first question based on the original idea"""
+        
         prompt = f"""
-        You are an expert business analyst and idea validator. Your job is to analyze a business idea and determine the most critical questions to ask to understand its potential.
+        You are an expert business analyst and idea validator. Your job is to ask the most critical first question to understand a business idea's potential.
 
-        IDEA: {idea}
+        ORIGINAL IDEA: {self.original_idea}
 
-        Analyze this idea and identify the 3 most critical questions that need to be answered to properly evaluate its potential. Focus on:
-        1. Target market and customer pain points
-        2. Value proposition and differentiation
+        Based on this idea, what is the SINGLE most critical question that needs to be answered first to properly evaluate its potential? 
+
+        Focus on the most fundamental aspect that will help understand:
+        1. Target market and customer pain points, OR
+        2. Value proposition and differentiation, OR  
         3. Feasibility and resources needed
 
         Please respond with valid JSON format containing:
-        - analysis: Brief analysis of the idea
-        - critical_questions: Array of 3 questions with question, reason, and category fields
-        - idea_summary: One sentence summary of the idea
+        {{
+            "question": "The single most critical question to ask first",
+            "reason": "Why this question is critical and what it will reveal",
+            "category": "market|value_proposition|feasibility",
+            "question_number": 1,
+            "total_questions": "dynamic",
+            "status": "asking"
+        }}
+
+        For the category field, use exactly one of these values:
+        - "market" for questions about target market, customers, or market validation
+        - "value_proposition" for questions about value proposition, differentiation, or competitive advantage  
+        - "feasibility" for questions about technical feasibility, resources, or implementation
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are a business analyst expert at asking the right questions to validate ideas. Always ask ONE question at a time."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        try:
+            # Try structured output first
+            result = self.call_llm_structured(messages, IndividualQuestionResponse, temperature=0.3)
+            
+            if result:
+                question_data = {
+                    "question": result.question,
+                    "reason": result.reason,
+                    "category": result.category,
+                    "question_number": result.question_number,
+                    "total_questions": result.total_questions,
+                    "status": result.status
+                }
+                
+                self.questions_asked.append(question_data)
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": f"Question: {question_data['question']}\nReason: {question_data['reason']}"
+                })
+                
+                return question_data
+                
+        except Exception as e:
+            print(f"Error generating first question with structured output: {e}")
+        
+        # Fallback to regular LLM call
+        response = self.call_llm(messages, temperature=0.3)
+        result = self.parse_json_response(response)
+        
+        if result:
+            question_data = {
+                "question": result.get("question", "What is your target market?"),
+                "reason": result.get("reason", "Understanding the target market is critical for idea validation"),
+                "category": result.get("category", "market"),
+                "question_number": 1,
+                "total_questions": "dynamic",
+                "status": "asking"
+            }
+            
+            self.questions_asked.append(question_data)
+            self.conversation_history.append({
+                "role": "assistant", 
+                "content": f"Question: {question_data['question']}\nReason: {question_data['reason']}"
+            })
+            
+            return question_data
+        
+        return {"error": "Failed to generate first question"}
+    
+    def _generate_follow_up_question(self) -> Dict[str, Any]:
+        """Generate the next question based on previous responses and conversation context"""
+        
+        # Build conversation context
+        conversation_summary = self._build_conversation_summary()
+        
+        prompt = f"""
+        You are an expert business analyst conducting a dynamic conversation to validate a business idea. 
+
+        ORIGINAL IDEA: {self.original_idea}
+
+        CONVERSATION HISTORY:
+        {conversation_summary}
+
+        Based on the previous questions and answers, what is the NEXT most critical question to ask? 
+
+        Consider:
+        1. What gaps in understanding still exist?
+        2. What aspect needs more clarification?
+        3. What would be the most valuable next piece of information?
+
+        The question should build upon previous answers and move the conversation forward toward a complete understanding of the idea's potential.
+
+        Please respond with valid JSON format containing:
+        {{
+            "question": "The next critical question to ask",
+            "reason": "Why this question is important given the previous answers",
+            "category": "market|value_proposition|feasibility",
+            "question_number": {len(self.questions_asked) + 1},
+            "total_questions": "dynamic",
+            "status": "asking"
+        }}
 
         For the category field, use exactly one of these values:
         - "market" for questions about target market, customers, or market validation
@@ -42,100 +186,95 @@ class ClarifierAgent(BaseAgent):
         """
         
         messages = [
-            {"role": "system", "content": "You are a business analyst expert at asking the right questions to validate ideas."},
+            {"role": "system", "content": "You are a business analyst expert at asking the right questions to validate ideas. Always ask ONE question at a time and build upon previous answers."},
             {"role": "user", "content": prompt}
         ]
         
         try:
             # Try structured output first
-            result = self.call_llm_structured(messages, IdeaAnalysisResponse, temperature=0.3)
+            result = self.call_llm_structured(messages, IndividualQuestionResponse, temperature=0.3)
             
             if result:
-                self.idea_context = {
-                    "analysis": result.analysis,
-                    "critical_questions": [q.dict() for q in result.critical_questions],
-                    "idea_summary": result.idea_summary
+                question_data = {
+                    "question": result.question,
+                    "reason": result.reason,
+                    "category": result.category,
+                    "question_number": result.question_number,
+                    "total_questions": result.total_questions,
+                    "status": result.status
                 }
-                self.log_activity("Analyzed initial idea", result.idea_summary)
-                return self.idea_context
+                
+                self.questions_asked.append(question_data)
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": f"Question: {question_data['question']}\nReason: {question_data['reason']}"
+                })
+                
+                return question_data
                 
         except Exception as e:
-            print(f"Error analyzing initial idea with structured output: {e}")
+            print(f"Error generating follow-up question with structured output: {e}")
         
         # Fallback to regular LLM call
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
         
         if result:
-            # Ensure the result has the expected structure
-            if "critical_questions" in result:
-                # Convert category values to proper enum values if needed
-                for question in result.get("critical_questions", []):
-                    if "category" in question:
-                        category = question["category"]
-                        if isinstance(category, str):
-                            category_lower = category.lower()
-                            if "market" in category_lower or "target" in category_lower:
-                                question["category"] = "market"
-                            elif "value" in category_lower or "proposition" in category_lower:
-                                question["category"] = "value_proposition"
-                            elif "feasibility" in category_lower or "resources" in category_lower:
-                                question["category"] = "feasibility"
+            question_data = {
+                "question": result.get("question", "What is your unique value proposition?"),
+                "reason": result.get("reason", "Understanding the value proposition is important for differentiation"),
+                "category": result.get("category", "value_proposition"),
+                "question_number": len(self.questions_asked) + 1,
+                "total_questions": "dynamic",
+                "status": "asking"
+            }
             
-            self.idea_context = result
-            self.log_activity("Analyzed initial idea", result.get("idea_summary"))
+            self.questions_asked.append(question_data)
+            self.conversation_history.append({
+                "role": "assistant",
+                "content": f"Question: {question_data['question']}\nReason: {question_data['reason']}"
+            })
+            
+            return question_data
         
-        return result or {"error": "Failed to analyze idea"}
+        return {"error": "Failed to generate follow-up question"}
+    
+    def _build_conversation_summary(self) -> str:
+        """Build a summary of the conversation so far"""
+        summary = ""
+        
+        for i, (question, response) in enumerate(zip(self.questions_asked, self.user_responses), 1):
+            summary += f"Q{i}: {question['question']}\n"
+            summary += f"A{i}: {response}\n\n"
+        
+        return summary
+    
+    def _should_generate_summary(self) -> bool:
+        """Determine if we have enough information to generate a summary"""
+        
+        # Check if we have at least 3 questions answered
+        if len(self.user_responses) < 3:
+            return False
+        
+        # Check if the last few questions are getting repetitive or less critical
+        if len(self.questions_asked) >= 5:
+            return True
+        
+        # Check if we have covered all major categories
+        categories_covered = set(q['category'] for q in self.questions_asked)
+        if len(categories_covered) >= 3:  # market, value_proposition, feasibility
+            return True
+        
+        # Check if the last response indicates the user feels they've provided enough information
+        last_response = self.user_responses[-1].lower() if self.user_responses else ""
+        if any(phrase in last_response for phrase in ["that's all", "that's everything", "i think that covers it", "that should be enough"]):
+            return True
+        
+        return False
     
     def ask_next_question(self, user_response: str = None) -> Dict[str, Any]:
-        """Ask the next critical question based on previous responses"""
-        
-        # Add user response to context if provided
-        if user_response:
-            self.user_responses.append(user_response)
-        
-        # If we haven't analyzed the idea yet, return error
-        if not self.idea_context:
-            return {"error": "No idea analyzed yet"}
-        
-        # Determine if we need more questions
-        if len(self.user_responses) >= len(self.idea_context.get("critical_questions", [])):
-            return self.generate_clarification_summary()
-        
-        # Get the next question
-        current_question_index = len(self.user_responses)
-        questions = self.idea_context.get("critical_questions", [])
-        
-        if current_question_index < len(questions):
-            next_question = questions[current_question_index]
-            self.questions_asked.append(next_question)
-            
-            # Generate suggestions for this question
-            context = {
-                "idea": self.idea_context.get("idea_summary", ""),
-                "analysis": self.idea_context.get("analysis", ""),
-                "critical_questions": self.idea_context.get("critical_questions", []),
-                "user_responses": self.user_responses,
-                "current_question_index": current_question_index
-            }
-            
-            suggestions = self.suggester.generate_suggestions(
-                question=next_question["question"],
-                context=context,
-                agent_type="clarifier"
-            )
-            
-            return {
-                "question": next_question["question"],
-                "reason": next_question["reason"],
-                "category": next_question["category"],
-                "question_number": current_question_index + 1,
-                "total_questions": len(questions),
-                "status": "asking",
-                "suggestions": suggestions.get("suggestions", []) if "error" not in suggestions else []
-            }
-        
-        return {"error": "No more questions to ask"}
+        """Ask the next question dynamically based on previous responses"""
+        return self.generate_next_question(user_response)
     
     def generate_clarification_summary(self) -> Dict[str, Any]:
         """Generate a summary of all clarifications made with detailed user personas"""
@@ -144,11 +283,11 @@ class ClarifierAgent(BaseAgent):
         user_personas = self.develop_user_personas()
         
         prompt = f"""
-        Based on the following idea and user responses, create a comprehensive summary of the clarified idea:
+        Based on the following idea and conversation, create a comprehensive summary of the clarified idea:
 
-        ORIGINAL IDEA: {self.idea_context.get("idea_summary", "Unknown")}
+        ORIGINAL IDEA: {self.original_idea}
         
-        QUESTIONS ASKED AND ANSWERS:
+        CONVERSATION SUMMARY:
         """
         
         for i, (question, response) in enumerate(zip(self.questions_asked, self.user_responses)):
@@ -197,9 +336,8 @@ class ClarifierAgent(BaseAgent):
         prompt = f"""
         Develop detailed user personas for this business idea:
 
-        IDEA: {self.idea_context.get("idea_summary", "Unknown")}
-        TARGET MARKET: {self.idea_context.get("analysis", "Unknown")}
-        USER RESPONSES: {self.user_responses}
+        IDEA: {self.original_idea}
+        CONVERSATION CONTEXT: {self._build_conversation_summary()}
 
         Create 3-5 detailed user personas that represent the target market. For each persona, include:
 
@@ -268,6 +406,6 @@ class ClarifierAgent(BaseAgent):
         return {
             "questions_asked": len(self.questions_asked),
             "responses_received": len(self.user_responses),
-            "total_questions": len(self.idea_context.get("critical_questions", [])),
-            "status": "complete" if len(self.user_responses) >= len(self.idea_context.get("critical_questions", [])) else "in_progress"
+            "total_questions": "dynamic",
+            "status": "complete" if self._should_generate_summary() else "in_progress"
         } 

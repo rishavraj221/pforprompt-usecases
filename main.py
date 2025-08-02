@@ -72,12 +72,20 @@ def run_idea_potential_analysis():
         if sys.argv[1] == "--interactive" or sys.argv[1] == "-i":
             # Interactive mode
             run_idea_analysis(interactive=True)
+        elif sys.argv[1] == "--all-agents" or sys.argv[1] == "-a":
+            # Run with all agents enabled
+            idea = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
+            run_idea_analysis(idea=idea, use_suggester_agent=True, use_roadmap_agent=True, use_refiner_agent=True)
+        elif sys.argv[1] == "--minimal" or sys.argv[1] == "-m":
+            # Run with only required agents
+            idea = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
+            run_idea_analysis(idea=idea, use_suggester_agent=False, use_roadmap_agent=False, use_refiner_agent=False)
         else:
             # Idea provided as argument
             idea = " ".join(sys.argv[1:])
             run_idea_analysis(idea=idea)
     else:
-        # Get idea from user input
+        # Get idea from user input with agent selection
         run_idea_analysis()
 
 
@@ -88,23 +96,31 @@ def show_menu():
     print("=" * 50)
     print("Choose an analysis system:")
     print("1. Idea Refinement Engine (async)")
-    print("2. Idea Potential Analysis System")
+    print("2. Idea Potential Analysis System (with agent selection)")
     print("3. Idea Potential Analysis (Interactive)")
-    print("4. Exit")
+    print("4. Idea Potential Analysis (All Agents)")
+    print("5. Idea Potential Analysis (Minimal - Required Agents Only)")
+    print("6. Exit")
     print("=" * 50)
     
-    choice = input("Enter your choice (1-4): ").strip()
+    choice = input("Enter your choice (1-6): ").strip()
     
     if choice == "1":
         print("\n🔄 Running Idea Refinement Engine...")
         asyncio.run(run_idea_refinement_engine())
     elif choice == "2":
-        print("\n🎯 Running Idea Potential Analysis...")
+        print("\n🎯 Running Idea Potential Analysis System...")
         run_idea_potential_analysis()
     elif choice == "3":
         print("\n🎯 Running Interactive Idea Potential Analysis...")
         run_idea_analysis(interactive=True)
     elif choice == "4":
+        print("\n🎯 Running Idea Potential Analysis (All Agents)...")
+        run_idea_analysis(use_suggester_agent=True, use_roadmap_agent=True, use_refiner_agent=True)
+    elif choice == "5":
+        print("\n🎯 Running Idea Potential Analysis (Minimal)...")
+        run_idea_analysis(use_suggester_agent=False, use_roadmap_agent=False, use_refiner_agent=False)
+    elif choice == "6":
         print("👋 Goodbye!")
         return False
     else:

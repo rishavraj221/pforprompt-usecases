@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Any, Optional, Union
 from enum import Enum
 
@@ -106,6 +106,14 @@ class CriticalQuestion(BaseModel):
     question: str = Field(description="The critical question to ask")
     reason: str = Field(description="Why this question is critical")
     category: QuestionCategory = Field(description="Category of the question")
+
+class IndividualQuestionResponse(BaseModel):
+    question: str = Field(description="The question to ask")
+    reason: str = Field(description="Why this question is important")
+    category: QuestionCategory = Field(description="Category of the question")
+    question_number: int = Field(description="Question number in the sequence")
+    total_questions: str = Field(description="Total questions (dynamic)")
+    status: str = Field(description="Status of the question (asking/clarified)")
 
 class IdeaAnalysisResponse(BaseModel):
     analysis: str = Field(description="Brief analysis of the idea")
@@ -276,4 +284,12 @@ class Suggestion(BaseModel):
 class SuggestionsResponse(BaseModel):
     suggestions: List[Suggestion] = Field(description="List of suggestions")
     context_analysis: str = Field(description="Analysis of the context")
-    recommendation_priority: str = Field(description="Priority recommendation") 
+    recommendation_priority: str = Field(description="Priority recommendation (high/medium/low or specific text)")
+    
+    @field_validator('recommendation_priority', mode='before')
+    @classmethod
+    def validate_recommendation_priority(cls, v):
+        """Convert recommendation_priority to string if it's an integer"""
+        if isinstance(v, int):
+            return str(v)
+        return v 
