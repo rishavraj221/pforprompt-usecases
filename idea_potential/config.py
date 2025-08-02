@@ -37,6 +37,21 @@ MAX_REDDIT_POSTS = 50  # Per subreddit
 MIN_RELEVANCE_SCORE = 3
 TIME_FILTER = 'month'  # 'hour', 'day', 'week', 'month', 'year', 'all'
 
+# Chunking configuration for large datasets
+CHUNK_SIZE = 20  # Number of posts per chunk for LLM analysis
+MAX_CHUNKS = 10  # Maximum number of chunks to process
+LARGE_DATASET_THRESHOLD = 20  # Threshold to trigger chunking
+
+# Quantitative analysis parameters
+MIN_ENGAGEMENT_SCORE = 5  # Minimum score for high engagement posts
+MIN_COMMENTS_THRESHOLD = 3  # Minimum comments for high engagement
+SENTIMENT_THRESHOLDS = {
+    'positive': 0.1,
+    'negative': -0.1,
+    'neutral_lower': -0.1,
+    'neutral_upper': 0.1
+}
+
 # Report configuration
 REPORT_OUTPUT_DIR = 'idea_potential/reports'
 REPORT_TEMPLATE = 'comprehensive' 

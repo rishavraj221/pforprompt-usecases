@@ -6,7 +6,9 @@ from collections import Counter
 import time
 from typing import Dict, List, Any
 from idea_potential.base_agent import BaseAgent
-from idea_potential.config import REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, RESEARCH_SUBREDDITS, MAX_REDDIT_POSTS, MIN_RELEVANCE_SCORE, TIME_FILTER
+from idea_potential.config import (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, RESEARCH_SUBREDDITS, 
+                                   MAX_REDDIT_POSTS, MIN_RELEVANCE_SCORE, TIME_FILTER, CHUNK_SIZE, 
+                                   LARGE_DATASET_THRESHOLD, MIN_ENGAGEMENT_SCORE, MIN_COMMENTS_THRESHOLD)
 
 class ResearchAgent(BaseAgent):
     """Agent responsible for gathering market intelligence from Reddit"""
@@ -16,6 +18,7 @@ class ResearchAgent(BaseAgent):
         self.reddit = None
         self.vader_analyzer = SentimentIntensityAnalyzer()
         self.research_data = {}
+        self.references = []  # Track all Reddit references
         
         # Initialize Reddit client
         if REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET:
@@ -27,6 +30,109 @@ class ResearchAgent(BaseAgent):
                 )
             except Exception as e:
                 print(f"Failed to initialize Reddit client: {e}")
+    
+    def chunk_large_dataset(self, posts: List[Dict[str, Any]], max_chunk_size: int = CHUNK_SIZE) -> List[List[Dict[str, Any]]]:
+        """Break large Reddit datasets into manageable chunks for LLM analysis"""
+        chunks = []
+        for i in range(0, len(posts), max_chunk_size):
+            chunk = posts[i:i + max_chunk_size]
+            chunks.append(chunk)
+        return chunks
+    
+    def analyze_chunk_with_references(self, chunk: List[Dict[str, Any]], idea_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze a chunk of Reddit posts with reference tracking"""
+        
+        # Prepare chunk data with references
+        chunk_data = []
+        chunk_references = []
+        
+        for post in chunk:
+            try:
+                # Ensure we have a valid URL
+                url = post.get('url', '')
+                if not url and 'permalink' in post:
+                    url = f"https://reddit.com{post['permalink']}"
+                elif not url:
+                    url = f"https://reddit.com/r/{post.get('subreddit', 'unknown')}/comments/{post.get('post_id', 'unknown')}/"
+                
+                post_data = {
+                    'title': post.get('title', 'Unknown'),
+                    'content': post.get('selftext', '')[:500],  # Limit content length
+                    'score': post.get('score', 0),
+                    'comments_count': post.get('num_comments', 0),
+                    'sentiment': post.get('sentiment_data', {'compound': 0}),
+                    'url': url,
+                    'subreddit': post.get('subreddit', 'unknown'),
+                    'created_utc': post.get('created_utc', 0)
+                }
+                chunk_data.append(post_data)
+                chunk_references.append({
+                    'url': url,
+                    'title': post.get('title', 'Unknown'),
+                    'subreddit': post.get('subreddit', 'unknown'),
+                    'score': post.get('score', 0),
+                    'comments': post.get('num_comments', 0)
+                })
+            except Exception as e:
+                print(f"Warning: Error processing post in chunk: {e}")
+                continue
+        
+        # Check if we have valid data
+        if not chunk_data:
+            return {"error": "No valid posts in chunk"}
+        
+        prompt = f"""
+        Analyze this chunk of Reddit posts for market insights related to this business idea:
+
+        IDEA: {idea_data.get('refined_idea', 'Unknown')}
+        TARGET MARKET: {idea_data.get('target_market', 'Unknown')}
+
+        REDDIT POSTS TO ANALYZE:
+        {chunk_data}
+
+        Provide analysis in JSON format:
+        {{
+            "quantitative_metrics": {{
+                "total_posts": {len(chunk_data)},
+                "avg_score": "average post score",
+                "avg_comments": "average comments per post",
+                "engagement_rate": "engagement calculation",
+                "sentiment_breakdown": {{
+                    "positive": "count",
+                    "neutral": "count", 
+                    "negative": "count"
+                }}
+            }},
+            "user_feedback": {{
+                "common_complaints": ["list of complaints"],
+                "expressed_needs": ["list of needs"],
+                "pain_points": ["list of pain points"],
+                "feature_requests": ["list of feature requests"],
+                "user_sentiment": "overall sentiment analysis"
+            }},
+            "market_insights": {{
+                "trends_identified": ["list of trends"],
+                "opportunities": ["list of opportunities"],
+                "challenges": ["list of challenges"]
+            }},
+            "references": {chunk_references}
+        }}
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert market analyst specializing in Reddit data analysis and business idea validation."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        response = self.call_llm(messages, temperature=0.3)
+        result = self.parse_json_response(response)
+        
+        if result:
+            # Add references to global tracking
+            self.references.extend(chunk_references)
+            return result
+        
+        return {"error": "Failed to analyze chunk"}
     
     def generate_search_keywords(self, idea_data: Dict[str, Any]) -> List[str]:
         """Generate relevant search keywords from the clarified idea"""
@@ -56,6 +162,7 @@ class ResearchAgent(BaseAgent):
         
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
+        print(f"research search keywords result: {result}")
         
         if isinstance(result, list):
             self.log_activity("Generated search keywords", len(result))
@@ -275,7 +382,7 @@ class ResearchAgent(BaseAgent):
         return list(set(pain_points))  # Remove duplicates
     
     def conduct_research(self, idea_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Main method to conduct comprehensive market research"""
+        """Main method to conduct comprehensive market research with chunking and quantitative analysis"""
         
         # Generate search keywords
         keywords = self.generate_search_keywords(idea_data)
@@ -283,14 +390,187 @@ class ResearchAgent(BaseAgent):
         # Search Reddit posts
         posts = self.search_reddit_posts(keywords)
         
-        # Analyze market insights
-        insights = self.analyze_market_insights(posts, idea_data)
+        # Check if dataset is large and needs chunking
+        if len(posts) > LARGE_DATASET_THRESHOLD:
+            print(f"Large dataset detected ({len(posts)} posts). Breaking into chunks for better analysis...")
+            chunks = self.chunk_large_dataset(posts, max_chunk_size=CHUNK_SIZE)
+            
+            all_chunk_insights = []
+            quantitative_metrics = {
+                'total_posts': len(posts),
+                'chunks_analyzed': len(chunks),
+                'avg_score': 0,
+                'avg_comments': 0,
+                'engagement_rate': 0,
+                'sentiment_breakdown': {'positive': 0, 'neutral': 0, 'negative': 0}
+            }
+            
+            # Analyze each chunk
+            for i, chunk in enumerate(chunks):
+                print(f"Analyzing chunk {i+1}/{len(chunks)}...")
+                try:
+                    chunk_insights = self.analyze_chunk_with_references(chunk, idea_data)
+                    
+                    if 'error' not in chunk_insights:
+                        all_chunk_insights.append(chunk_insights)
+                        
+                        # Aggregate quantitative metrics
+                        if 'quantitative_metrics' in chunk_insights:
+                            qm = chunk_insights['quantitative_metrics']
+                            quantitative_metrics['avg_score'] += qm.get('avg_score', 0)
+                            quantitative_metrics['avg_comments'] += qm.get('avg_comments', 0)
+                            if 'sentiment_breakdown' in qm:
+                                for sentiment, count in qm['sentiment_breakdown'].items():
+                                    quantitative_metrics['sentiment_breakdown'][sentiment] += count
+                    else:
+                        print(f"Warning: Chunk {i+1} analysis failed: {chunk_insights['error']}")
+                except Exception as e:
+                    print(f"Error analyzing chunk {i+1}: {e}")
+                    continue
+            
+            # Calculate averages
+            if len(all_chunk_insights) > 0:
+                quantitative_metrics['avg_score'] /= len(all_chunk_insights)
+                quantitative_metrics['avg_comments'] /= len(all_chunk_insights)
+                quantitative_metrics['engagement_rate'] = (quantitative_metrics['avg_score'] + quantitative_metrics['avg_comments']) / 2
+            
+            # Combine insights from all chunks
+            if all_chunk_insights:
+                combined_insights = self.combine_chunk_insights(all_chunk_insights, quantitative_metrics)
+            else:
+                print("Warning: All chunks failed. Falling back to original analysis method.")
+                combined_insights = self.analyze_market_insights(posts, idea_data)
+            
+        else:
+            # For smaller datasets, use the original method
+            combined_insights = self.analyze_market_insights(posts, idea_data)
         
-        # Store research data
+        # Store research data with references
         self.research_data = {
             'keywords_used': keywords,
             'posts_collected': posts,
-            'insights': insights
+            'insights': combined_insights,
+            'references': self.references,
+            'quantitative_data': self.calculate_comprehensive_metrics(posts)
         }
         
-        return self.research_data 
+        return self.research_data
+    
+    def combine_chunk_insights(self, chunk_insights: List[Dict[str, Any]], quantitative_metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """Combine insights from multiple chunks into a comprehensive analysis"""
+        
+        # Aggregate user feedback
+        all_complaints = []
+        all_needs = []
+        all_pain_points = []
+        all_feature_requests = []
+        
+        for chunk in chunk_insights:
+            if 'user_feedback' in chunk:
+                uf = chunk['user_feedback']
+                all_complaints.extend(uf.get('common_complaints', []))
+                all_needs.extend(uf.get('expressed_needs', []))
+                all_pain_points.extend(uf.get('pain_points', []))
+                all_feature_requests.extend(uf.get('feature_requests', []))
+        
+        # Remove duplicates and get top items
+        all_complaints = list(set(all_complaints))[:10]
+        all_needs = list(set(all_needs))[:10]
+        all_pain_points = list(set(all_pain_points))[:10]
+        all_feature_requests = list(set(all_feature_requests))[:10]
+        
+        # Aggregate market insights
+        all_trends = []
+        all_opportunities = []
+        all_challenges = []
+        
+        for chunk in chunk_insights:
+            if 'market_insights' in chunk:
+                mi = chunk['market_insights']
+                all_trends.extend(mi.get('trends_identified', []))
+                all_opportunities.extend(mi.get('opportunities', []))
+                all_challenges.extend(mi.get('challenges', []))
+        
+        # Remove duplicates
+        all_trends = list(set(all_trends))[:10]
+        all_opportunities = list(set(all_opportunities))[:10]
+        all_challenges = list(set(all_challenges))[:10]
+        
+        return {
+            'quantitative_metrics': quantitative_metrics,
+            'user_feedback': {
+                'common_complaints': all_complaints,
+                'expressed_needs': all_needs,
+                'pain_points': all_pain_points,
+                'feature_requests': all_feature_requests,
+                'user_sentiment': 'Aggregated from multiple chunks'
+            },
+            'market_insights': {
+                'trends_identified': all_trends,
+                'opportunities': all_opportunities,
+                'challenges': all_challenges
+            },
+            'posts_analyzed': quantitative_metrics['total_posts'],
+            'chunks_analyzed': quantitative_metrics['chunks_analyzed']
+        }
+    
+    def calculate_comprehensive_metrics(self, posts: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculate comprehensive quantitative metrics from Reddit posts"""
+        
+        if not posts:
+            return {}
+        
+        scores = [post.get('score', 0) for post in posts]
+        comments = [post.get('num_comments', 0) for post in posts]
+        sentiments = [post.get('sentiment_data', {}).get('compound', 0) for post in posts]
+        
+        # Calculate metrics
+        total_posts = len(posts)
+        avg_score = sum(scores) / total_posts if scores else 0
+        avg_comments = sum(comments) / total_posts if comments else 0
+        engagement_rate = (avg_score + avg_comments) / 2
+        
+        # Sentiment breakdown
+        positive = len([s for s in sentiments if s > 0.1])
+        neutral = len([s for s in sentiments if -0.1 <= s <= 0.1])
+        negative = len([s for s in sentiments if s < -0.1])
+        
+        # Top performing posts
+        top_posts = sorted(posts, key=lambda x: x.get('score', 0), reverse=True)[:5]
+        
+        # Subreddit distribution
+        subreddit_counts = Counter([post.get('subreddit', 'unknown') for post in posts])
+        
+        # High engagement posts using config thresholds
+        high_engagement_posts = [
+            p for p in posts 
+            if p.get('score', 0) > MIN_ENGAGEMENT_SCORE or p.get('num_comments', 0) > MIN_COMMENTS_THRESHOLD
+        ]
+        
+        return {
+            'total_posts_analyzed': total_posts,
+            'average_score': round(avg_score, 2),
+            'average_comments': round(avg_comments, 2),
+            'engagement_rate': round(engagement_rate, 2),
+            'sentiment_distribution': {
+                'positive': positive,
+                'neutral': neutral,
+                'negative': negative,
+                'total': total_posts,
+                'positive_percentage': round((positive / total_posts) * 100, 1) if total_posts > 0 else 0,
+                'neutral_percentage': round((neutral / total_posts) * 100, 1) if total_posts > 0 else 0,
+                'negative_percentage': round((negative / total_posts) * 100, 1) if total_posts > 0 else 0
+            },
+            'top_performing_posts': [
+                {
+                    'title': post.get('title', ''),
+                    'score': post.get('score', 0),
+                    'comments': post.get('num_comments', 0),
+                    'url': post.get('url', ''),  # Use the already constructed URL
+                    'subreddit': post.get('subreddit', '')
+                } for post in top_posts
+            ],
+            'subreddit_distribution': dict(subreddit_counts.most_common(10)),
+            'high_engagement_posts': len(high_engagement_posts),
+            'engagement_percentage': round((len(high_engagement_posts) / total_posts) * 100, 1) if total_posts > 0 else 0
+        } 

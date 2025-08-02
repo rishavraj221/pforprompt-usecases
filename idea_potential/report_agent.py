@@ -13,7 +13,12 @@ class ReportAgent(BaseAgent):
         
     def generate_comprehensive_report(self, idea_data: Dict[str, Any], research_data: Dict[str, Any], 
                                    validation_data: Dict[str, Any], roadmap_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate a comprehensive analysis report"""
+        """Generate a comprehensive analysis report with quantitative data and user feedback"""
+        
+        # Extract quantitative data and user feedback
+        quantitative_data = research_data.get('quantitative_data', {})
+        user_feedback = research_data.get('insights', {}).get('user_feedback', {})
+        references = research_data.get('references', [])
         
         prompt = f"""
         Create a comprehensive business idea analysis report based on all the collected data:
@@ -28,6 +33,9 @@ class ReportAgent(BaseAgent):
         - Market Insights: {research_data.get('insights', {})}
         - Posts Analyzed: {research_data.get('insights', {}).get('posts_analyzed', 0)}
         - Keywords Used: {research_data.get('keywords_used', [])}
+        - Quantitative Metrics: {quantitative_data}
+        - User Feedback: {user_feedback}
+        - References: {len(references)} Reddit posts analyzed
 
         VALIDATION DATA:
         - Validation Matrix: {validation_data.get('validation_matrix', {})}
@@ -48,6 +56,22 @@ class ReportAgent(BaseAgent):
                 "recommendation": "go|proceed_with_caution|reconsider|abandon",
                 "confidence_level": "high|medium|low",
                 "next_steps": ["List of immediate next steps"]
+            }},
+            "quantitative_analysis": {{
+                "posts_analyzed": "Number of Reddit posts analyzed",
+                "engagement_metrics": "Engagement analysis with numbers",
+                "sentiment_analysis": "Sentiment breakdown with percentages",
+                "top_performing_content": "Analysis of high-engagement posts",
+                "subreddit_distribution": "Distribution across subreddits",
+                "market_validation_score": "Quantitative market validation score"
+            }},
+            "user_feedback_analysis": {{
+                "what_people_are_saying": "Analysis of user comments and discussions",
+                "expressed_needs": ["List of needs users explicitly mentioned"],
+                "pain_points": ["List of problems users are facing"],
+                "feature_requests": ["List of features users want"],
+                "common_complaints": ["List of user complaints"],
+                "user_sentiment_summary": "Overall user sentiment analysis"
             }},
             "market_analysis": {{
                 "market_size": "Assessment of market size",
@@ -98,6 +122,10 @@ class ReportAgent(BaseAgent):
                 "key_performance_indicators": ["List of KPIs"],
                 "success_criteria": ["List of success criteria"],
                 "measurement_framework": "How to measure success"
+            }},
+            "references": {{
+                "reddit_posts_analyzed": {len(references)},
+                "reference_list": ["List of Reddit URLs and titles"]
             }}
         }}
         """
@@ -177,6 +205,66 @@ Confidence Level: {report_data.get('executive_summary', {}).get('confidence_leve
         markdown_content += f"""
 ### Market Opportunity
 {report_data.get('market_analysis', {}).get('market_opportunity', 'Not available')}
+
+---
+
+## 📊 Quantitative Analysis
+
+### Posts Analyzed
+{report_data.get('quantitative_analysis', {}).get('posts_analyzed', 'Not available')}
+
+### Engagement Metrics
+{report_data.get('quantitative_analysis', {}).get('engagement_metrics', 'Not available')}
+
+### Sentiment Analysis
+{report_data.get('quantitative_analysis', {}).get('sentiment_analysis', 'Not available')}
+
+### Top Performing Content
+{report_data.get('quantitative_analysis', {}).get('top_performing_content', 'Not available')}
+
+### Subreddit Distribution
+{report_data.get('quantitative_analysis', {}).get('subreddit_distribution', 'Not available')}
+
+### Market Validation Score
+{report_data.get('quantitative_analysis', {}).get('market_validation_score', 'Not available')}
+
+---
+
+## 💬 User Feedback Analysis
+
+### What People Are Saying
+{report_data.get('user_feedback_analysis', {}).get('what_people_are_saying', 'Not available')}
+
+### Expressed Needs
+"""
+        
+        for need in report_data.get('user_feedback_analysis', {}).get('expressed_needs', []):
+            markdown_content += f"- {need}\n"
+        
+        markdown_content += f"""
+### Pain Points
+"""
+        
+        for pain_point in report_data.get('user_feedback_analysis', {}).get('pain_points', []):
+            markdown_content += f"- {pain_point}\n"
+        
+        markdown_content += f"""
+### Feature Requests
+"""
+        
+        for request in report_data.get('user_feedback_analysis', {}).get('feature_requests', []):
+            markdown_content += f"- {request}\n"
+        
+        markdown_content += f"""
+### Common Complaints
+"""
+        
+        for complaint in report_data.get('user_feedback_analysis', {}).get('common_complaints', []):
+            markdown_content += f"- {complaint}\n"
+        
+        markdown_content += f"""
+### User Sentiment Summary
+{report_data.get('user_feedback_analysis', {}).get('user_sentiment_summary', 'Not available')}
 
 ---
 
@@ -344,6 +432,25 @@ Confidence Level: {report_data.get('executive_summary', {}).get('confidence_leve
 ### Measurement Framework
 {report_data.get('success_metrics', {}).get('measurement_framework', 'Not available')}
 
+---
+
+## 📚 References
+
+### Reddit Posts Analyzed
+This analysis is based on {report_data.get('references', {}).get('reddit_posts_analyzed', 0)} Reddit posts from various subreddits.
+
+### Reference List
+"""
+        
+        # Add reference list if available
+        reference_list = report_data.get('references', {}).get('reference_list', [])
+        if reference_list:
+            for i, reference in enumerate(reference_list[:20], 1):  # Limit to first 20 references
+                markdown_content += f"{i}. {reference}\n"
+        else:
+            markdown_content += "No specific references available.\n"
+        
+        markdown_content += f"""
 ---
 
 ## 📝 Conclusion
