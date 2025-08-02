@@ -1,79 +1,59 @@
 """
-Example: Using the Comprehensive Report Generator
-Demonstrates how the new report system generates detailed VC-style investment memos
+Example Comprehensive Report Generation
+Demonstrates the improved report generator with realistic data
 """
 
 import asyncio
-import os
-import sys
 from pipeline import IdeaValidationPipeline
+from report_generator import ComprehensiveReportGenerator
 
 
 async def run_comprehensive_validation_example():
-    """Run a complete idea validation with comprehensive reporting"""
+    """Run a complete validation example with comprehensive reporting"""
     
-    # Initialize the pipeline
-    pipeline = IdeaValidationPipeline()
-    
-    # Example idea to validate
-    user_idea = """
-    I want to build a platform that helps small businesses automate their customer service 
-    using AI chatbots. The platform would integrate with popular messaging apps like 
-    WhatsApp and Facebook Messenger, and provide easy-to-use tools for businesses to 
-    create and manage their chatbots without technical knowledge.
-    """
-    
-    print("🚀 Starting Comprehensive Idea Validation")
+    print("🚀 Running Comprehensive Idea Validation Example")
     print("=" * 60)
-    print(f"Idea: {user_idea.strip()}")
-    print("=" * 60)
+    
+    # Example idea for testing
+    test_idea = "AI-powered prompt engineering assistant that helps developers debug and optimize their LLM prompts"
     
     try:
-        # Run the validation pipeline
-        result = await pipeline.validate_idea(user_idea, save_report=True)
+        # Initialize pipeline
+        pipeline = IdeaValidationPipeline()
+        
+        print(f"\n📝 Analyzing Idea: {test_idea}")
+        print("\n🔄 Running validation pipeline...")
+        
+        # Run validation with comprehensive reporting
+        result = await pipeline.validate_idea(test_idea, save_report=True)
         
         if result["success"]:
-            print("\n✅ Validation completed successfully!")
+            print(f"\n✅ Validation completed successfully!")
+            print(f"📊 Report saved to: {result['report_filepath']}")
+            print(f"⏱️ Analysis duration: {result['tracking']['analysis_duration_minutes']} minutes")
+            print(f"🆔 Validation ID: {result['tracking']['validation_id']}")
             
-            # Display tracking information
-            if result.get("tracking"):
-                tracking = result["tracking"]
-                print(f"📊 Analysis Details:")
-                print(f"   Validation ID: {tracking.get('validation_id', 'N/A')}")
-                print(f"   Duration: {tracking.get('analysis_duration_minutes', 0)} minutes")
-                print(f"   Start Time: {tracking.get('analysis_start_time', 'N/A')}")
-            
-            # Display report location
-            if result.get("report_filepath"):
-                print(f"\n📄 Comprehensive Report saved to: {result['report_filepath']}")
-                
-                # Show a preview of the report
-                with open(result["report_filepath"], "r", encoding="utf-8") as f:
-                    report_content = f.read()
-                    print(f"\n📋 Report Preview (first 500 characters):")
-                    print("-" * 40)
-                    print(report_content[:500] + "...")
-                    print("-" * 40)
-            
-            # Display intermediate results summary
+            # Show intermediate results
             if result.get("intermediate_results"):
-                intermediate = result["intermediate_results"]
-                print(f"\n🔍 Analysis Summary:")
-                print(f"   Clarified Idea: {'✅' if intermediate.get('clarified_idea') else '❌'}")
-                print(f"   Variations Generated: {'✅' if intermediate.get('variations') else '❌'}")
-                print(f"   Critique Analysis: {'✅' if intermediate.get('critique') else '❌'}")
-                print(f"   Reality Check: {'✅' if intermediate.get('reality_check') else '❌'}")
-                print(f"   User Validation: {'✅' if intermediate.get('user_responses') else '❌'}")
+                print(f"\n📋 Intermediate Results:")
+                for agent, status in result["intermediate_results"].items():
+                    print(f"  • {agent}: {status}")
             
+            # Show any errors
+            if result.get("errors"):
+                print(f"\n⚠️ Errors encountered:")
+                for error in result["errors"]:
+                    print(f"  • {error}")
+            
+            # Show final report preview
+            if result.get("final_report"):
+                print(f"\n📄 Report Preview (first 500 chars):")
+                preview = result["final_report"][:500] + "..." if len(result["final_report"]) > 500 else result["final_report"]
+                print(preview)
+                
         else:
             print(f"\n❌ Validation failed: {result.get('error', 'Unknown error')}")
             
-        # Display any errors
-        if result.get("errors"):
-            print(f"\n⚠️ Errors encountered:")
-            for error in result["errors"]:
-                print(f"   - {error}")
-                
     except Exception as e:
         print(f"\n💥 Pipeline execution failed: {str(e)}")
 
@@ -139,16 +119,218 @@ def show_report_template_structure():
     print(template_structure)
 
 
-if __name__ == "__main__":
-    print("🎯 Comprehensive Report Generator Example")
+def demonstrate_improved_report_generator():
+    """Demonstrate the improved report generator with realistic data"""
+    
+    print("🔧 Demonstrating Improved Report Generator")
+    print("=" * 50)
+    
+    # Create realistic sample data
+    sample_state = {
+        "user_idea": "AI-powered prompt engineering assistant that helps developers debug and optimize their LLM prompts",
+        "clarified_idea": {
+            "status": "complete",
+            "core_problem": "Developers struggle to debug and optimize LLM prompts effectively",
+            "proposed_solution": "AI-powered assistant that analyzes prompts and suggests improvements",
+            "target_users": "Software developers, AI engineers, prompt engineers",
+            "value_proposition": "Faster prompt debugging and optimization with AI-powered insights",
+            "implementation_approach": "Web-based platform with API integration",
+            "known_assumptions": [
+                "Developers will pay for prompt optimization tools",
+                "AI can effectively analyze and improve prompts",
+                "Market exists for specialized prompt engineering tools"
+            ]
+        },
+        "idea_variations": {
+            "practical_variations": [
+                "Browser extension for real-time prompt analysis",
+                "VS Code plugin for prompt debugging",
+                "API service for prompt optimization",
+                "Collaborative prompt workspace",
+                "Prompt template marketplace"
+            ],
+            "wildcard_concepts": [
+                "AI that writes prompts for you based on requirements",
+                "Prompt version control with git-like functionality",
+                "Prompt performance analytics dashboard",
+                "Cross-platform prompt sharing platform",
+                "Prompt optimization as a service"
+            ]
+        },
+        "critique_analysis": {
+            "swot_analysis": {
+                "strengths": [
+                    "Addresses real developer pain point",
+                    "AI-powered insights provide unique value",
+                    "Growing market for AI development tools",
+                    "Scalable SaaS business model"
+                ],
+                "weaknesses": [
+                    "Requires significant AI/ML expertise",
+                    "High development complexity",
+                    "Need for large training dataset",
+                    "Competition from established players"
+                ],
+                "opportunities": [
+                    "Growing demand for AI development tools",
+                    "Potential for enterprise partnerships",
+                    "Expansion to other AI development areas",
+                    "Integration with existing developer tools"
+                ],
+                "threats": [
+                    "Large tech companies entering the space",
+                    "Rapidly evolving AI landscape",
+                    "Difficulty in maintaining competitive advantage",
+                    "Potential regulatory challenges"
+                ]
+            },
+            "feasibility_scores": {
+                "technical": 6,
+                "market": 7,
+                "operational": 5
+            },
+            "assumption_risks": [
+                "Market size sufficient for sustainable business: high",
+                "AI can effectively analyze prompts: medium",
+                "Developers will pay for this tool: medium",
+                "Technical complexity manageable: high"
+            ],
+            "kill_risk": "low"
+        },
+        "reality_check": {
+            "market_size_indicators": {
+                "forum_mentions": 45,
+                "search_volume": "High",
+                "growth_trend": "Growing"
+            },
+            "web_research": {
+                "existing_solutions": [
+                    {
+                        "name": "PromptPerfect",
+                        "website": "https://promptperfect.com",
+                        "strengths": ["User-friendly interface", "Multiple model support"],
+                        "weaknesses": ["Limited customization", "High pricing"],
+                        "pricing": "$29/month",
+                        "user_sentiment": "positive"
+                    },
+                    {
+                        "name": "PromptBase",
+                        "website": "https://promptbase.com",
+                        "strengths": ["Large prompt library", "Community features"],
+                        "weaknesses": ["No optimization tools", "Quality varies"],
+                        "pricing": "Free + premium",
+                        "user_sentiment": "neutral"
+                    }
+                ],
+                "forum_insights": [
+                    {
+                        "source": "Reddit r/MachineLearning",
+                        "discussion": "Prompt engineering challenges in production",
+                        "pain_points": ["Debugging complex prompts", "Optimizing for cost", "Maintaining consistency"],
+                        "sentiment": "negative"
+                    }
+                ],
+                "market_trends": [
+                    "Growing demand for AI development tools",
+                    "Increasing focus on prompt engineering",
+                    "Rise of specialized AI tools"
+                ]
+            },
+            "reddit_analysis": {
+                "total_posts": 45,
+                "subreddits_analyzed": ["MachineLearning", "OpenAI", "ArtificialIntelligence"]
+            }
+        },
+        "user_validation_responses": [
+            {
+                "question": "Would you pay $20/month for an AI prompt optimization tool?",
+                "response": "Yes, absolutely! I spend hours debugging prompts and would love a tool to help with this.",
+                "sentiment": "positive"
+            },
+            {
+                "question": "How often do you struggle with prompt debugging?",
+                "response": "Almost daily. It's the most time-consuming part of my AI development workflow.",
+                "sentiment": "negative"
+            },
+            {
+                "question": "What's your biggest frustration with current prompt engineering tools?",
+                "response": "Most tools are too basic or too expensive. Need something in between.",
+                "sentiment": "neutral"
+            }
+        ],
+        "analysis_start_time": "2025-01-27T10:00:00",
+        "validation_id": "VAL_20250127_100000",
+        "analysis_duration_minutes": 45
+    }
+    
+    # Generate report using improved generator
+    generator = ComprehensiveReportGenerator()
+    report = generator.generate_report(sample_state, "AI-powered prompt engineering assistant")
+    
+    print("\n📊 Generated Report Preview:")
     print("=" * 60)
     
-    # Show the template structure
+    # Show key sections
+    sections = report.split("\n\n")
+    for i, section in enumerate(sections[:5]):  # Show first 5 sections
+        print(f"\n{section}")
+        if i < 4:  # Don't print separator after last section
+            print("-" * 40)
+    
+    print(f"\n... (report continues with {len(sections)-5} more sections)")
+    
+    # Save complete report
+    with open("example_comprehensive_report.md", "w", encoding="utf-8") as f:
+        f.write(report)
+    
+    print(f"\n✅ Complete report saved to: example_comprehensive_report.md")
+    print(f"📏 Report length: {len(report)} characters")
+    
+    # Analyze report quality
+    print(f"\n🔍 Report Quality Analysis:")
+    
+    # Check for mock data
+    mock_indicators = ["[X]", "[Action 1]", "[Specific task]", "[Cost estimate]", "[X]%", "$[X]"]
+    found_mock = [indicator for indicator in mock_indicators if indicator in report]
+    
+    if found_mock:
+        print(f"⚠️ Found mock data indicators: {found_mock}")
+    else:
+        print("✅ No mock data found - all content is data-driven")
+    
+    # Check metrics calculation
+    if "Problem Validation|7/10" in report or "Problem Validation|8/10" in report:
+        print("✅ Problem validation score calculated from real data")
+    else:
+        print("⚠️ Problem validation score may be using default values")
+    
+    # Check competitive analysis
+    if "PromptPerfect" in report or "PromptBase" in report:
+        print("✅ Competitive analysis includes real competitor data")
+    else:
+        print("⚠️ Competitive analysis may be generic")
+    
+    # Check user validation
+    if "Yes, absolutely!" in report or "Almost daily" in report:
+        print("✅ User validation responses included in report")
+    else:
+        print("⚠️ User validation responses may be missing")
+
+
+if __name__ == "__main__":
+    print("🎯 Comprehensive Report Generation Examples")
+    print("=" * 50)
+    
+    # Show template structure
     show_report_template_structure()
     
-    print("\n" + "=" * 60)
-    print("Running example validation...")
-    print("=" * 60)
+    print("\n" + "=" * 50)
     
-    # Run the example
-    asyncio.run(run_comprehensive_validation_example()) 
+    # Demonstrate improved generator
+    demonstrate_improved_report_generator()
+    
+    print("\n" + "=" * 50)
+    
+    # Run full pipeline example (optional)
+    print("\n🚀 To run a full pipeline example, uncomment the following line:")
+    print("# asyncio.run(run_comprehensive_validation_example())") 

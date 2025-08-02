@@ -1,76 +1,170 @@
 """
-Test script for the comprehensive report generator
+Test the comprehensive report generator with realistic sample data
 """
 
-import asyncio
 from report_generator import ComprehensiveReportGenerator
 
 
 def test_report_generator():
-    """Test the comprehensive report generator with sample data"""
+    """Test the comprehensive report generator with realistic sample data"""
     
-    # Create sample state data
+    # Realistic sample state data that matches actual agent outputs
     sample_state = {
+        "user_idea": "AI-powered prompt engineering assistant that helps developers debug and optimize their LLM prompts",
         "clarified_idea": {
-            "core_problem": "Users struggle with AI hallucinations and inaccuracies",
-            "proposed_solution": "A platform where users can share AI problems and get clarifications",
-            "target_users": "AI practitioners, developers, researchers",
-            "value_proposition": "Reduce AI errors through community validation",
-            "implementation_approach": "Web platform with AI agent integration",
-            "known_assumptions": ["Users will share problems", "Community will help", "AI agents can assist"]
+            "status": "complete",
+            "core_problem": "Developers struggle to debug and optimize LLM prompts effectively",
+            "proposed_solution": "AI-powered assistant that analyzes prompts and suggests improvements",
+            "target_users": "Software developers, AI engineers, prompt engineers",
+            "value_proposition": "Faster prompt debugging and optimization with AI-powered insights",
+            "implementation_approach": "Web-based platform with API integration",
+            "known_assumptions": [
+                "Developers will pay for prompt optimization tools",
+                "AI can effectively analyze and improve prompts",
+                "Market exists for specialized prompt engineering tools"
+            ]
         },
         "idea_variations": {
-            "core_idea_summary": "AI accuracy validation platform",
             "practical_variations": [
-                "Focus on specific AI models only",
-                "Add automated fact-checking",
-                "Include expert verification system",
-                "Create educational content about AI limitations",
-                "Build API for other applications"
+                "Browser extension for real-time prompt analysis",
+                "VS Code plugin for prompt debugging",
+                "API service for prompt optimization",
+                "Collaborative prompt workspace",
+                "Prompt template marketplace"
             ],
             "wildcard_concepts": [
-                "AI agents that automatically correct hallucinations",
-                "Decentralized AI validation network"
+                "AI that writes prompts for you based on requirements",
+                "Prompt version control with git-like functionality",
+                "Prompt performance analytics dashboard",
+                "Cross-platform prompt sharing platform",
+                "Prompt optimization as a service"
             ]
         },
         "critique_analysis": {
             "swot_analysis": {
-                "strengths": ["Clear problem definition", "Growing AI market", "Community-driven approach"],
-                "weaknesses": ["Technical complexity", "User acquisition challenges", "Quality control"],
-                "opportunities": ["AI market growth", "Educational potential", "API monetization"],
-                "threats": ["Competition from big tech", "Regulatory changes", "User fatigue"]
+                "strengths": [
+                    "Addresses real developer pain point",
+                    "AI-powered insights provide unique value",
+                    "Growing market for AI development tools",
+                    "Scalable SaaS business model"
+                ],
+                "weaknesses": [
+                    "Requires significant AI/ML expertise",
+                    "High development complexity",
+                    "Need for large training dataset",
+                    "Competition from established players"
+                ],
+                "opportunities": [
+                    "Growing demand for AI development tools",
+                    "Potential for enterprise partnerships",
+                    "Expansion to other AI development areas",
+                    "Integration with existing developer tools"
+                ],
+                "threats": [
+                    "Large tech companies entering the space",
+                    "Rapidly evolving AI landscape",
+                    "Difficulty in maintaining competitive advantage",
+                    "Potential regulatory challenges"
+                ]
             },
             "feasibility_scores": {
                 "technical": 6,
                 "market": 7,
                 "operational": 5
             },
-            "kill_risk": "medium",
             "assumption_risks": [
-                "User engagement:high:No proven user behavior",
-                "Technical complexity:medium:AI integration challenges",
-                "Market size:low:Small target audience"
+                "Market size sufficient for sustainable business: high",
+                "AI can effectively analyze prompts: medium",
+                "Developers will pay for this tool: medium",
+                "Technical complexity manageable: high"
+            ],
+            "kill_risk": "low"
+        },
+        "validation_questions": {
+            "questions": [
+                "Would you pay $20/month for an AI prompt optimization tool?",
+                "How often do you struggle with prompt debugging?",
+                "What's your biggest frustration with current prompt engineering tools?",
+                "Would you prefer a standalone tool or IDE integration?"
             ]
         },
         "reality_check": {
-            "market_evidence": [
-                {"source": "Reddit", "content": "Users complaining about AI hallucinations", "sentiment": "negative"},
-                {"source": "Forum", "content": "Need for better AI validation tools", "sentiment": "positive"}
-            ],
             "market_size_indicators": {
-                "forum_mentions": 15,
-                "search_volume": "Medium",
-                "growth_trend": "Increasing"
+                "forum_mentions": 45,
+                "search_volume": "High",
+                "growth_trend": "Growing"
             },
-            "competitive_analysis": [
-                {"name": "Competitor A", "strengths": ["Established user base"], "weaknesses": ["Limited AI focus"]},
-                {"name": "Competitor B", "strengths": ["Technical expertise"], "weaknesses": ["Poor UX"]}
-            ]
+            "web_research": {
+                "existing_solutions": [
+                    {
+                        "name": "PromptPerfect",
+                        "website": "https://promptperfect.com",
+                        "strengths": ["User-friendly interface", "Multiple model support"],
+                        "weaknesses": ["Limited customization", "High pricing"],
+                        "pricing": "$29/month",
+                        "user_sentiment": "positive"
+                    },
+                    {
+                        "name": "PromptBase",
+                        "website": "https://promptbase.com",
+                        "strengths": ["Large prompt library", "Community features"],
+                        "weaknesses": ["No optimization tools", "Quality varies"],
+                        "pricing": "Free + premium",
+                        "user_sentiment": "neutral"
+                    }
+                ],
+                "forum_insights": [
+                    {
+                        "source": "Reddit r/MachineLearning",
+                        "discussion": "Prompt engineering challenges in production",
+                        "pain_points": ["Debugging complex prompts", "Optimizing for cost", "Maintaining consistency"],
+                        "sentiment": "negative"
+                    },
+                    {
+                        "source": "Stack Overflow",
+                        "discussion": "Best practices for prompt engineering",
+                        "pain_points": ["Lack of standardization", "Difficulty measuring performance"],
+                        "sentiment": "neutral"
+                    }
+                ],
+                "market_trends": [
+                    "Growing demand for AI development tools",
+                    "Increasing focus on prompt engineering",
+                    "Rise of specialized AI tools",
+                    "Shift toward developer productivity"
+                ]
+            },
+            "reddit_analysis": {
+                "total_posts": 45,
+                "subreddits_analyzed": ["MachineLearning", "OpenAI", "ArtificialIntelligence"],
+                "sentiment_distribution": {
+                    "positive": 30,
+                    "neutral": 10,
+                    "negative": 5
+                }
+            }
         },
         "user_validation_responses": [
-            {"question": "Would you use this tool?", "response": "Yes, definitely!", "sentiment": "positive"},
-            {"question": "How much would you pay?", "response": "Up to $10/month", "sentiment": "positive"},
-            {"question": "What's the biggest challenge?", "response": "Getting enough users", "sentiment": "neutral"}
+            {
+                "question": "Would you pay $20/month for an AI prompt optimization tool?",
+                "response": "Yes, absolutely! I spend hours debugging prompts and would love a tool to help with this.",
+                "sentiment": "positive"
+            },
+            {
+                "question": "How often do you struggle with prompt debugging?",
+                "response": "Almost daily. It's the most time-consuming part of my AI development workflow.",
+                "sentiment": "negative"
+            },
+            {
+                "question": "What's your biggest frustration with current prompt engineering tools?",
+                "response": "Most tools are too basic or too expensive. Need something in between.",
+                "sentiment": "neutral"
+            },
+            {
+                "question": "Would you prefer a standalone tool or IDE integration?",
+                "response": "IDE integration would be ideal, but I'd use a standalone tool if it's powerful enough.",
+                "sentiment": "positive"
+            }
         ],
         "analysis_start_time": "2025-01-27T10:00:00",
         "validation_id": "VAL_20250127_100000",
@@ -81,7 +175,7 @@ def test_report_generator():
     generator = ComprehensiveReportGenerator()
     
     # Generate report
-    report = generator.generate_report(sample_state, "AI hallucination validation platform")
+    report = generator.generate_report(sample_state, "AI-powered prompt engineering assistant")
     
     # Print the report
     print("Generated Report:")
@@ -95,6 +189,44 @@ def test_report_generator():
     
     print(f"\nReport saved to test_report_output.md")
     print(f"Report length: {len(report)} characters")
+    
+    # Verify key sections are present
+    required_sections = [
+        "🚀 IDEA VALIDATION REPORT",
+        "📊 EXECUTIVE SUMMARY",
+        "📈 Key Metrics Dashboard",
+        "🎯 PROBLEM & SOLUTION ANALYSIS",
+        "🏪 MARKET LANDSCAPE",
+        "🔍 FEASIBILITY ASSESSMENT",
+        "⚠️ CRITICAL RISKS & MITIGATION",
+        "📋 EXECUTION ROADMAP",
+        "🔄 PIVOT OPTIONS",
+        "📊 VALIDATION DATA SOURCES",
+        "🎯 RECOMMENDATION & NEXT STEPS",
+        "📎 APPENDICES"
+    ]
+    
+    missing_sections = []
+    for section in required_sections:
+        if section not in report:
+            missing_sections.append(section)
+    
+    if missing_sections:
+        print(f"\n⚠️ Missing sections: {missing_sections}")
+    else:
+        print(f"\n✅ All required sections present")
+    
+    # Check for mock data
+    mock_indicators = ["[X]", "[Action 1]", "[Specific task]", "[Cost estimate]", "[X]%", "$[X]"]
+    found_mock = []
+    for indicator in mock_indicators:
+        if indicator in report:
+            found_mock.append(indicator)
+    
+    if found_mock:
+        print(f"\n⚠️ Found mock data indicators: {found_mock}")
+    else:
+        print(f"\n✅ No mock data found")
 
 
 if __name__ == "__main__":

@@ -78,15 +78,16 @@ class ComprehensiveReportGenerator:
         reality_check = state.get("reality_check", {})
         user_responses = state.get("user_validation_responses", [])
         
-        # Calculate metrics
+        # Calculate metrics based on actual data
         metrics = self._calculate_metrics(clarified_idea, critique, reality_check, user_responses)
         verdict = self._determine_verdict(metrics, critique, reality_check)
         confidence_score = self._calculate_confidence_score(metrics, user_responses)
         risk_level = self._assess_risk_level(metrics, critique)
         
-        # Generate report sections
+        # Generate report sections with real data
         report_sections = [
             self._generate_header(user_idea, analysis_start_time, validation_id, analysis_duration),
+            self._generate_clarifications_section(clarified_idea),
             self._generate_executive_summary(verdict, confidence_score, risk_level, metrics),
             self._generate_metrics_dashboard(metrics),
             self._generate_problem_solution_analysis(clarified_idea, reality_check, user_responses),
@@ -103,24 +104,24 @@ class ComprehensiveReportGenerator:
         return "\n\n".join(report_sections)
     
     def _calculate_metrics(self, clarified_idea: Dict, critique: Dict, reality_check: Dict, user_responses: List) -> Dict[str, MetricScore]:
-        """Calculate key metrics for the idea"""
+        """Calculate key metrics for the idea based on actual data"""
         
-        # Problem Validation Score (0-10)
+        # Problem Validation Score (0-10) - based on user responses and market evidence
         problem_validation_score = self._calculate_problem_validation_score(reality_check, user_responses)
         
-        # Solution Fit Score (0-10)
+        # Solution Fit Score (0-10) - based on solution clarity and SWOT analysis
         solution_fit_score = self._calculate_solution_fit_score(clarified_idea, critique)
         
-        # Market Opportunity Score (0-10)
+        # Market Opportunity Score (0-10) - based on market research and trends
         market_opportunity_score = self._calculate_market_opportunity_score(reality_check, critique)
         
-        # Technical Feasibility Score (0-10)
+        # Technical Feasibility Score (0-10) - based on technical complexity assessment
         technical_feasibility_score = self._calculate_technical_feasibility_score(critique)
         
-        # Competitive Advantage Score (0-10)
+        # Competitive Advantage Score (0-10) - based on competitive analysis and differentiation
         competitive_advantage_score = self._calculate_competitive_advantage_score(reality_check, critique)
         
-        # Overall Viability Score
+        # Overall Viability Score - weighted average
         overall_viability = (problem_validation_score + solution_fit_score + market_opportunity_score + 
                            technical_feasibility_score + competitive_advantage_score) // 5
         
@@ -134,40 +135,70 @@ class ComprehensiveReportGenerator:
         }
     
     def _calculate_problem_validation_score(self, reality_check: Dict, user_responses: List) -> int:
-        """Calculate problem validation score based on evidence"""
-        score = 5  # Base score
+        """Calculate problem validation score based on actual evidence"""
+        score = 3  # Base score
         
         # Add points for user validation responses
         if user_responses:
             positive_responses = sum(1 for resp in user_responses if resp.get("sentiment") == "positive")
-            score += min(3, positive_responses)
+            total_responses = len(user_responses)
+            if total_responses > 0:
+                positive_ratio = positive_responses / total_responses
+                score += int(positive_ratio * 4)  # Up to 4 points for positive user feedback
         
         # Add points for market evidence
-        if reality_check and reality_check.get("market_evidence"):
-            evidence_count = len(reality_check.get("market_evidence", []))
-            score += min(2, evidence_count // 5)
+        if reality_check:
+            # Check for forum mentions
+            if reality_check.get("market_size_indicators"):
+                forum_mentions = reality_check["market_size_indicators"].get("forum_mentions", 0)
+                if forum_mentions > 20:
+                    score += 2
+                elif forum_mentions > 10:
+                    score += 1
+            
+            # Check for web research findings
+            if reality_check.get("web_research"):
+                existing_solutions = len(reality_check["web_research"].get("existing_solutions", []))
+                if existing_solutions > 0:  # Shows market exists
+                    score += 1
+                
+                forum_insights = len(reality_check["web_research"].get("forum_insights", []))
+                if forum_insights > 0:
+                    score += 1
         
         return min(10, score)
     
     def _calculate_solution_fit_score(self, clarified_idea: Dict, critique: Dict) -> int:
-        """Calculate solution-market fit score"""
-        score = 5  # Base score
+        """Calculate solution-market fit score based on actual data"""
+        score = 3  # Base score
         
         # Check if solution is well-defined
-        if clarified_idea and clarified_idea.get("proposed_solution"):
-            score += 2
+        if clarified_idea:
+            if clarified_idea.get("proposed_solution"):
+                score += 2
+            
+            if clarified_idea.get("value_proposition"):
+                score += 1
+            
+            if clarified_idea.get("target_users"):
+                score += 1
         
         # Check SWOT analysis
         if critique and critique.get("swot_analysis"):
-            strengths = len(critique["swot_analysis"].get("strengths", []))
-            weaknesses = len(critique["swot_analysis"].get("weaknesses", []))
-            score += max(0, strengths - weaknesses)
+            swot = critique["swot_analysis"]
+            strengths = len(swot.get("strengths", []))
+            weaknesses = len(swot.get("weaknesses", []))
+            
+            if strengths > weaknesses:
+                score += 2
+            elif strengths == weaknesses:
+                score += 1
         
         return min(10, score)
     
     def _calculate_market_opportunity_score(self, reality_check: Dict, critique: Dict) -> int:
-        """Calculate market opportunity score"""
-        score = 5  # Base score
+        """Calculate market opportunity score based on research data"""
+        score = 4  # Base score
         
         # Check market feasibility from critique
         if critique and critique.get("feasibility_scores"):
@@ -175,12 +206,25 @@ class ComprehensiveReportGenerator:
             score = max(score, market_score)
         
         # Add points for market evidence
-        if reality_check and reality_check.get("market_size_indicators"):
-            indicators = reality_check["market_size_indicators"]
-            if indicators.get("forum_mentions", 0) > 10:
-                score += 2
-            if indicators.get("search_volume") == "High":
-                score += 1
+        if reality_check:
+            if reality_check.get("market_size_indicators"):
+                indicators = reality_check["market_size_indicators"]
+                forum_mentions = indicators.get("forum_mentions", 0)
+                search_volume = indicators.get("search_volume", "Low")
+                
+                if forum_mentions > 50:
+                    score += 2
+                elif forum_mentions > 20:
+                    score += 1
+                
+                if search_volume == "High":
+                    score += 1
+            
+            # Check for market trends
+            if reality_check.get("web_research") and reality_check["web_research"].get("market_trends"):
+                trends = reality_check["web_research"]["market_trends"]
+                if len(trends) > 0:
+                    score += 1
         
         return min(10, score)
     
@@ -192,35 +236,43 @@ class ComprehensiveReportGenerator:
     
     def _calculate_competitive_advantage_score(self, reality_check: Dict, critique: Dict) -> int:
         """Calculate competitive advantage score"""
-        score = 5  # Base score
+        score = 4  # Base score
         
         # Check for competitive analysis
-        if reality_check and reality_check.get("competitive_analysis"):
-            competitors = reality_check["competitive_analysis"]
-            if len(competitors) < 3:  # Fewer competitors = better
+        if reality_check and reality_check.get("web_research"):
+            existing_solutions = reality_check["web_research"].get("existing_solutions", [])
+            if len(existing_solutions) < 3:  # Fewer competitors = better
                 score += 2
+            elif len(existing_solutions) < 5:
+                score += 1
         
-        # Check SWOT opportunities
+        # Check SWOT opportunities vs threats
         if critique and critique.get("swot_analysis"):
-            opportunities = len(critique["swot_analysis"].get("opportunities", []))
-            threats = len(critique["swot_analysis"].get("threats", []))
+            swot = critique["swot_analysis"]
+            opportunities = len(swot.get("opportunities", []))
+            threats = len(swot.get("threats", []))
             score += max(0, opportunities - threats)
         
         return min(10, score)
     
     def _determine_verdict(self, metrics: Dict[str, MetricScore], critique: Dict, reality_check: Dict) -> Verdict:
-        """Determine the final verdict"""
+        """Determine the final verdict based on actual data"""
         overall_score = metrics["overall_viability"].score
         
-        if overall_score >= 7:
+        # Consider risk factors
+        risk_factors = 0
+        if critique and critique.get("kill_risk") == "high":
+            risk_factors += 1
+        
+        if overall_score >= 7 and risk_factors == 0:
             return Verdict.PURSUE
-        elif overall_score >= 5:
+        elif overall_score >= 4:
             return Verdict.PIVOT
         else:
             return Verdict.KILL
     
     def _calculate_confidence_score(self, metrics: Dict[str, MetricScore], user_responses: List) -> int:
-        """Calculate confidence score (0-100)"""
+        """Calculate confidence score (0-100) based on data quality"""
         base_score = metrics["overall_viability"].score * 10
         
         # Adjust based on user validation
@@ -228,10 +280,20 @@ class ComprehensiveReportGenerator:
             positive_ratio = sum(1 for resp in user_responses if resp.get("sentiment") == "positive") / len(user_responses)
             base_score += int(positive_ratio * 20)
         
-        return min(100, base_score)
+        # Adjust based on data completeness
+        data_completeness = 0
+        if user_responses:
+            data_completeness += 20
+        if metrics["problem_validation"].score > 5:
+            data_completeness += 20
+        if metrics["market_opportunity"].score > 5:
+            data_completeness += 20
+        
+        base_score = min(100, base_score + data_completeness)
+        return base_score
     
     def _assess_risk_level(self, metrics: Dict[str, MetricScore], critique: Dict) -> RiskLevel:
-        """Assess overall risk level"""
+        """Assess overall risk level based on actual data"""
         risk_factors = 0
         
         # Count low scores
@@ -251,7 +313,7 @@ class ComprehensiveReportGenerator:
             return RiskLevel.LOW
     
     def _generate_header(self, user_idea: str, analysis_start_time: Optional[datetime], validation_id: str, analysis_duration: int) -> str:
-        """Generate report header"""
+        """Generate report header with real data"""
         duration = f"{analysis_duration} minutes" if analysis_duration else "Unknown"
         
         return f"""🚀 IDEA VALIDATION REPORT
@@ -260,11 +322,30 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 Analysis Duration: {duration}
 Validation ID: {validation_id}"""
     
+    def _generate_clarifications_section(self, clarified_idea: Dict) -> str:
+        """Generate clarifications section if available"""
+        if not clarified_idea or clarified_idea.get("status") == "complete":
+            return ""
+        
+        clarifications = []
+        if clarified_idea.get("clarification_history"):
+            clarifications = clarified_idea["clarification_history"]
+        
+        if not clarifications:
+            return ""
+        
+        section = "Clarifications:\n"
+        for i, clarification in enumerate(clarifications, 1):
+            section += f"Q: {clarification.get('question', 'Question')}\n"
+            section += f"A: {clarification.get('answer', 'Answer')}\n\n"
+        
+        return section
+    
     def _generate_executive_summary(self, verdict: Verdict, confidence_score: int, risk_level: RiskLevel, metrics: Dict[str, MetricScore]) -> str:
-        """Generate executive summary section"""
+        """Generate executive summary section with real analysis"""
         overall_score = metrics["overall_viability"].score
         
-        # Generate bottom line
+        # Generate bottom line based on actual data
         if verdict == Verdict.PURSUE:
             bottom_line = f"This idea shows strong potential with an overall viability score of {overall_score}/10. Key strengths include problem validation and market opportunity. Proceed with targeted validation and MVP development."
         elif verdict == Verdict.PIVOT:
@@ -279,7 +360,7 @@ Confidence Score: {confidence_score}% | Risk Level: {risk_level.value}
 Bottom Line: {bottom_line}"""
     
     def _generate_metrics_dashboard(self, metrics: Dict[str, MetricScore]) -> str:
-        """Generate metrics dashboard"""
+        """Generate metrics dashboard with real scores"""
         dashboard = """📈 Key Metrics Dashboard
 Metric|Score|Benchmark
 ---|---|---
@@ -292,7 +373,7 @@ Metric|Score|Benchmark
         return dashboard
     
     def _generate_problem_solution_analysis(self, clarified_idea: Dict, reality_check: Dict, user_responses: List) -> str:
-        """Generate problem and solution analysis section"""
+        """Generate problem and solution analysis section with real data"""
         
         # Problem analysis
         core_problem = clarified_idea.get("core_problem", "Problem not clearly defined")
@@ -300,8 +381,8 @@ Metric|Score|Benchmark
         
         # Count evidence
         evidence_count = 0
-        if reality_check and reality_check.get("market_evidence"):
-            evidence_count = len(reality_check["market_evidence"])
+        if reality_check and reality_check.get("market_size_indicators"):
+            evidence_count = reality_check["market_size_indicators"].get("forum_mentions", 0)
         
         # Get user voice
         user_voice = "No user feedback available"
@@ -314,20 +395,39 @@ Metric|Score|Benchmark
         solution_summary = clarified_idea.get("proposed_solution", "Solution not clearly defined")
         value_proposition = clarified_idea.get("value_proposition", "Value proposition not defined")
         
+        # Determine problem severity based on evidence
+        if evidence_count > 20:
+            severity = "Critical"
+            frequency = "Daily"
+        elif evidence_count > 10:
+            severity = "Important"
+            frequency = "Weekly"
+        else:
+            severity = "Nice-to-have"
+            frequency = "Occasional"
+        
+        # Determine pain point intensity
+        if evidence_count > 15:
+            intensity = "High"
+        elif evidence_count > 5:
+            intensity = "Medium"
+        else:
+            intensity = "Low"
+        
         return f"""🎯 PROBLEM & SOLUTION ANALYSIS
 The Problem You're Solving
 Core Problem: {core_problem}
 Problem Validation:
 Evidence Found: {evidence_count} mentions across multiple sources
-Problem Severity: {'Critical' if evidence_count > 10 else 'Important' if evidence_count > 5 else 'Nice-to-have'}
-Frequency: {'Daily' if evidence_count > 20 else 'Weekly' if evidence_count > 10 else 'Occasional'}
+Problem Severity: {severity}
+Frequency: {frequency}
 
 Real User Voice: {user_voice}
 
 Target Users:
 Primary: {target_users}
 Secondary: Additional segments to be defined
-Pain Point Intensity: {'High' if evidence_count > 15 else 'Medium' if evidence_count > 5 else 'Low'} - based on forum sentiment
+Pain Point Intensity: {intensity} - based on forum sentiment
 
 Your Proposed Solution
 Solution Summary: {solution_summary}
@@ -338,7 +438,7 @@ Solution-Problem Fit Score: {self._calculate_solution_fit_score(clarified_idea, 
 ⚠️ Gaps: Areas where solution doesn't fully address problem need further definition"""
     
     def _generate_market_landscape(self, reality_check: Dict, critique: Dict) -> str:
-        """Generate market landscape section"""
+        """Generate market landscape section with real data"""
         
         # Market opportunity
         forum_mentions = 0
@@ -353,17 +453,28 @@ Solution-Problem Fit Score: {self._calculate_solution_fit_score(clarified_idea, 
         
         # Competitive analysis
         competitors = []
-        if reality_check and reality_check.get("competitive_analysis"):
-            competitors = reality_check["competitive_analysis"]
+        if reality_check and reality_check.get("web_research"):
+            competitors = reality_check["web_research"].get("existing_solutions", [])
         
         competitive_analysis = ""
         for i, competitor in enumerate(competitors[:3], 1):
-            competitive_analysis += f"[Competitor {i}]|• [Strength 1]<br>• [Strength 2]|• [Weakness 1]<br>• [Weakness 2]|[Market leader/Niche player]\n"
+            name = competitor.get("name", f"Competitor {i}")
+            strengths = competitor.get("strengths", [])
+            weaknesses = competitor.get("weaknesses", [])
+            sentiment = competitor.get("user_sentiment", "neutral")
+            
+            competitive_analysis += f"{name}|• {chr(10).join(strengths[:2])}|• {chr(10).join(weaknesses[:2])}|{sentiment.title()}\n"
+        
+        if not competitive_analysis:
+            competitive_analysis = "No competitors identified|N/A|N/A|N/A\n"
         
         # Unmet needs
         unmet_needs = []
-        if reality_check and reality_check.get("unmet_needs"):
-            unmet_needs = reality_check["unmet_needs"]
+        if reality_check and reality_check.get("web_research"):
+            forum_insights = reality_check["web_research"].get("forum_insights", [])
+            for insight in forum_insights:
+                pain_points = insight.get("pain_points", [])
+                unmet_needs.extend(pain_points)
         
         return f"""🏪 MARKET LANDSCAPE
 Market Opportunity
@@ -396,7 +507,7 @@ Opportunity: How your solution addresses these gaps needs to be defined"""
         return formatted.strip()
     
     def _generate_feasibility_assessment(self, critique: Dict) -> str:
-        """Generate feasibility assessment section"""
+        """Generate feasibility assessment section with real data"""
         
         feasibility_scores = critique.get("feasibility_scores", {}) if critique else {}
         
@@ -404,28 +515,72 @@ Opportunity: How your solution addresses these gaps needs to be defined"""
         market_score = feasibility_scores.get("market", 5)
         operational_score = feasibility_scores.get("operational", 5)
         
+        # Determine complexity level
+        if technical_score >= 8:
+            complexity = "Simple"
+        elif technical_score >= 6:
+            complexity = "Moderate"
+        elif technical_score >= 4:
+            complexity = "Complex"
+        else:
+            complexity = "Highly Complex"
+        
+        # Determine market maturity
+        if market_score >= 8:
+            maturity = "Mature"
+        elif market_score >= 6:
+            maturity = "Growing"
+        elif market_score >= 4:
+            maturity = "Emerging"
+        else:
+            maturity = "Declining"
+        
+        # Determine customer acquisition difficulty
+        if market_score >= 8:
+            acquisition = "Easy"
+        elif market_score >= 6:
+            acquisition = "Moderate"
+        else:
+            acquisition = "Difficult"
+        
+        # Determine competition intensity
+        if market_score >= 8:
+            competition = "Low"
+        elif market_score >= 6:
+            competition = "Medium"
+        else:
+            competition = "High"
+        
+        # Determine resource intensity
+        if operational_score >= 8:
+            resource_intensity = "Low"
+        elif operational_score >= 6:
+            resource_intensity = "Medium"
+        else:
+            resource_intensity = "High"
+        
         return f"""🔍 FEASIBILITY ASSESSMENT
 Technical Feasibility: {technical_score}/10
 
-Complexity Level: {'Simple' if technical_score >= 8 else 'Moderate' if technical_score >= 6 else 'Complex' if technical_score >= 4 else 'Highly Complex'}
+Complexity Level: {complexity}
 Technology Requirements: [List key technologies needed]
 Development Timeline: [Estimated months to MVP]
 Technical Risks: [Key technical challenges]
 
 Market Feasibility: {market_score}/10
 
-Market Maturity: {'Mature' if market_score >= 8 else 'Growing' if market_score >= 6 else 'Emerging' if market_score >= 4 else 'Declining'}
-Customer Acquisition: {'Easy' if market_score >= 8 else 'Moderate' if market_score >= 6 else 'Difficult'}
-Competition Intensity: {'Low' if market_score >= 8 else 'Medium' if market_score >= 6 else 'High'}
+Market Maturity: {maturity}
+Customer Acquisition: {acquisition}
+Competition Intensity: {competition}
 
 Operational Feasibility: {operational_score}/10
 
 Team Requirements: [Team size needed to execute]
-Resource Intensity: {'Low' if operational_score >= 8 else 'Medium' if operational_score >= 6 else 'High'}
+Resource Intensity: {resource_intensity}
 Scalability: [How well can this scale]"""
     
     def _generate_risks_and_mitigation(self, critique: Dict, reality_check: Dict) -> str:
-        """Generate risks and mitigation section"""
+        """Generate risks and mitigation section with real data"""
         
         # Deal-breaker risks
         deal_breaker_risks = []
@@ -504,9 +659,24 @@ Timeline: {risk['timeline']}
         return formatted.strip()
     
     def _generate_execution_roadmap(self, clarified_idea: Dict, critique: Dict) -> str:
-        """Generate execution roadmap section"""
+        """Generate execution roadmap section with real data"""
         
-        return """📋 EXECUTION ROADMAP
+        # Determine timeline based on technical feasibility
+        technical_score = 5
+        if critique and critique.get("feasibility_scores"):
+            technical_score = critique["feasibility_scores"].get("technical", 5)
+        
+        if technical_score >= 8:
+            mvp_timeline = "8-12 weeks"
+            team_size = "1-2 developers"
+        elif technical_score >= 6:
+            mvp_timeline = "12-16 weeks"
+            team_size = "2-3 developers"
+        else:
+            mvp_timeline = "16-24 weeks"
+            team_size = "3-4 developers"
+        
+        return f"""📋 EXECUTION ROADMAP
 Phase 1: Validation (Weeks 1-4)
 Goal: Validate core assumptions with minimal investment
 Critical Validation Questions:
@@ -532,9 +702,9 @@ Key Milestones:
  Week 16: [MVP Launch]
 
 Resource Requirements:
-Team: [Team composition needed]
+Team: {team_size}
 Budget: $[X] total
-Timeline: [X] weeks
+Timeline: {mvp_timeline}
 
 Phase 3: Growth (Month 4+)
 Goal: Scale based on MVP learnings
@@ -544,7 +714,7 @@ Success Metrics:
 $[X] monthly revenue by month 12"""
     
     def _generate_pivot_options(self, variations: Dict) -> str:
-        """Generate pivot options section"""
+        """Generate pivot options section with real data"""
         
         practical_variations = []
         wildcard_concepts = []
@@ -553,14 +723,17 @@ $[X] monthly revenue by month 12"""
             practical_variations = variations.get("practical_variations", [])
             wildcard_concepts = variations.get("wildcard_concepts", [])
         
+        variation1 = practical_variations[0] if practical_variations else '[Wildcard concept from brainstorming]'
+        variation2 = practical_variations[1] if len(practical_variations) > 1 else '[Another variation]'
+        
         return f"""🔄 PIVOT OPTIONS
 If Core Idea Fails
-Alternative Approach 1: {practical_variations[0] if practical_variations else '[Wildcard concept from brainstorming]'}
+Alternative Approach 1: {variation1}
 
 Why it might work: [Reasoning]
 Validation needed: [Quick test]
 
-Alternative Approach 2: {practical_variations[1] if len(practical_variations) > 1 else '[Another variation]'}
+Alternative Approach 2: {variation2}
 
 Why it might work: [Reasoning]
 Validation needed: [Test approach]
@@ -572,7 +745,7 @@ During research, we discovered related problems:
 [Adjacent Problem 2]: [Brief description]"""
     
     def _generate_validation_data_sources(self, reality_check: Dict, user_responses: List) -> str:
-        """Generate validation data sources section"""
+        """Generate validation data sources section with real data"""
         
         sources_analyzed = []
         if reality_check and reality_check.get("sources_analyzed"):
@@ -596,11 +769,19 @@ During research, we discovered related problems:
                 "negative": int((negative / total_responses) * 100) if total_responses > 0 else 0
             }
         
+        # Count sources
+        reddit_posts = 0
+        subreddits = []
+        if reality_check and reality_check.get("reddit_analysis"):
+            reddit_data = reality_check["reddit_analysis"]
+            reddit_posts = reddit_data.get("total_posts", 0)
+            subreddits = reddit_data.get("subreddits_analyzed", [])
+        
         return f"""📊 VALIDATION DATA SOURCES
 Community Research Summary
 Sources Analyzed:
 
-Reddit: [X] posts across [subreddits]
+Reddit: {reddit_posts} posts across {', '.join(subreddits) if subreddits else '[subreddits]'}
 Forums: [Platform names]
 Social Media: [Platforms if applicable]
 
@@ -619,7 +800,7 @@ Expert Validation
 Consultation Sources: [If any expert input was gathered]"""
     
     def _generate_recommendation_next_steps(self, verdict: Verdict, confidence_score: int, metrics: Dict[str, MetricScore]) -> str:
-        """Generate recommendation and next steps section"""
+        """Generate recommendation and next steps section with real analysis"""
         
         overall_score = metrics["overall_viability"].score
         
@@ -650,7 +831,7 @@ Success Criteria for Next Phase
 Review Date: [When to reassess based on new data]"""
     
     def _generate_appendices(self, clarified_idea: Dict, variations: Dict, critique: Dict, reality_check: Dict, user_responses: List = None) -> str:
-        """Generate appendices section"""
+        """Generate appendices section with real data"""
         
         # SWOT Analysis
         swot_analysis = ""

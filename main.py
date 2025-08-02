@@ -7,17 +7,19 @@
 #     fetch_reddit_posts(report_file_path=report_file_path)
 
 """
-Example usage of the modular Idea Refinement Engine
+Main entry point for the pforprompts-usecases project
 """
 
 import asyncio
 import json
+import sys
 from idea_refinement_engine.pipeline import IdeaValidationPipeline
+from idea_potential import run_idea_analysis
 from settings import OPENAI_API_KEY
 
 
-async def example_usage():
-    """Example of how to use the modular idea refinement engine"""
+async def run_idea_refinement_engine():
+    """Run the idea refinement engine"""
     
     # Initialize the pipeline
     pipeline = IdeaValidationPipeline(llm_model="gpt-4")
@@ -59,5 +61,87 @@ async def example_usage():
         print("\n" + "="*60 + "\n")
 
 
+def run_idea_potential_analysis():
+    """Run the idea potential analysis system"""
+    
+    print("🎯 Idea Potential Analysis System")
+    print("=" * 50)
+    
+    # Check for command line arguments
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--interactive" or sys.argv[1] == "-i":
+            # Interactive mode
+            run_idea_analysis(interactive=True)
+        else:
+            # Idea provided as argument
+            idea = " ".join(sys.argv[1:])
+            run_idea_analysis(idea=idea)
+    else:
+        # Get idea from user input
+        run_idea_analysis()
+
+
+def show_menu():
+    """Show the main menu"""
+    
+    print("🚀 pforprompts-usecases")
+    print("=" * 50)
+    print("Choose an analysis system:")
+    print("1. Idea Refinement Engine (async)")
+    print("2. Idea Potential Analysis System")
+    print("3. Idea Potential Analysis (Interactive)")
+    print("4. Exit")
+    print("=" * 50)
+    
+    choice = input("Enter your choice (1-4): ").strip()
+    
+    if choice == "1":
+        print("\n🔄 Running Idea Refinement Engine...")
+        asyncio.run(run_idea_refinement_engine())
+    elif choice == "2":
+        print("\n🎯 Running Idea Potential Analysis...")
+        run_idea_potential_analysis()
+    elif choice == "3":
+        print("\n🎯 Running Interactive Idea Potential Analysis...")
+        run_idea_analysis(interactive=True)
+    elif choice == "4":
+        print("👋 Goodbye!")
+        return False
+    else:
+        print("❌ Invalid choice. Please try again.")
+    
+    return True
+
+
 if __name__ == "__main__":
-    asyncio.run(example_usage()) 
+    # Check if command line arguments are provided
+    # if len(sys.argv) > 1:
+    #     # Direct execution with arguments
+    #     if sys.argv[1] in ["--idea-potential", "--ip"]:
+    #         # Run idea potential analysis
+    #         if len(sys.argv) > 2 and sys.argv[2] in ["--interactive", "-i"]:
+    #             run_idea_analysis(interactive=True)
+    #         else:
+    #             idea = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
+    #             run_idea_analysis(idea=idea)
+    #     elif sys.argv[1] in ["--idea-refinement", "--ir"]:
+    #         # Run idea refinement engine
+    #         asyncio.run(run_idea_refinement_engine())
+    #     else:
+    #         # Default to idea potential analysis with provided idea
+    #         idea = " ".join(sys.argv[1:])
+    #         run_idea_analysis(idea=idea)
+
+    idea = """
+i have an idea to build a platform like stackoverflow for developers, only for their struggle in prompts, llm hallucinations, which can be fixed by tweaking prompt, so community will help user refine prompt to get the expected answer
+"""
+
+    run_idea_analysis(
+        idea=idea,
+        interactive=True,
+    )
+
+    # else:
+    #     # Interactive menu
+    #     while show_menu():
+    #         pass 
