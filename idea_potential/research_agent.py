@@ -6,8 +6,9 @@ from collections import Counter
 import time
 from typing import Dict, List, Any
 from idea_potential.base_agent import BaseAgent
-from idea_potential.config import (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, RESEARCH_SUBREDDITS, 
-                                   MAX_REDDIT_POSTS, MIN_RELEVANCE_SCORE, TIME_FILTER, CHUNK_SIZE, 
+from idea_potential.config import (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, SUBREDDIT_CATEGORIES, 
+                                   KEYWORD_CATEGORY_MAPPING, FALLBACK_SUBREDDITS, MAX_REDDIT_POSTS, 
+                                   MIN_RELEVANCE_SCORE, TIME_FILTER, CHUNK_SIZE, 
                                    LARGE_DATASET_THRESHOLD, MIN_ENGAGEMENT_SCORE, MIN_COMMENTS_THRESHOLD)
 
 class ResearchAgent(BaseAgent):
@@ -30,6 +31,92 @@ class ResearchAgent(BaseAgent):
                 )
             except Exception as e:
                 print(f"Failed to initialize Reddit client: {e}")
+    
+    def select_relevant_subreddits(self, idea_data: Dict[str, Any]) -> List[str]:
+        """Dynamically select relevant subreddits based on the business idea"""
+        
+        idea_text = idea_data.get('refined_idea', '').lower()
+        target_market = idea_data.get('target_market', '').lower()
+        
+        # Combine idea text and target market for analysis
+        combined_text = f"{idea_text} {target_market}"
+        
+        # Extract keywords from the idea
+        keywords = self.extract_keywords_from_idea(combined_text)
+        
+        # Map keywords to categories
+        identified_categories = set()
+        for keyword in keywords:
+            if keyword in KEYWORD_CATEGORY_MAPPING:
+                identified_categories.add(KEYWORD_CATEGORY_MAPPING[keyword])
+        
+        # If no categories found, try to identify categories from the idea text
+        if not identified_categories:
+            identified_categories = self.identify_categories_from_text(combined_text)
+        
+        # Collect subreddits from identified categories
+        selected_subreddits = set()
+        for category in identified_categories:
+            if category in SUBREDDIT_CATEGORIES:
+                selected_subreddits.update(SUBREDDIT_CATEGORIES[category])
+        
+        # If still no subreddits found, use fallback
+        if not selected_subreddits:
+            print("No specific categories identified, using fallback subreddits")
+            selected_subreddits = set(FALLBACK_SUBREDDITS)
+        
+        # Limit to top 10 most relevant subreddits
+        final_subreddits = list(selected_subreddits)[:10]
+        
+        print(f"Selected subreddits for analysis: {final_subreddits}")
+        return final_subreddits
+    
+    def extract_keywords_from_idea(self, text: str) -> List[str]:
+        """Extract relevant keywords from the idea text"""
+        # Common words to ignore
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'mine', 'yours', 'hers', 'ours', 'theirs'}
+        
+        # Extract words and filter
+        words = re.findall(r'\b\w+\b', text.lower())
+        keywords = [word for word in words if word not in stop_words and len(word) > 2]
+        
+        return keywords
+    
+    def identify_categories_from_text(self, text: str) -> set:
+        """Identify relevant categories from the idea text using AI analysis"""
+        
+        prompt = f"""
+        Analyze this business idea and identify the most relevant categories from this list:
+        
+        Idea: {text}
+        
+        Categories: ai, machine_learning, programming, technology, business, entrepreneurship, startups, development, software_engineering, web_development, design, creative, finance, cryptocurrency, health, fitness, education, learning, gaming, entertainment, lifestyle, productivity, marketplace, ecommerce, community, social_media, tools, utilities, prompt_engineering, llm, language_models, forum, platform, marketplace_platform, exchange
+        
+        Return only the category names that are most relevant to this idea, separated by commas. Be specific and relevant.
+        """
+        
+        try:
+            response = self.llm_client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=100,
+                temperature=0.3
+            )
+            
+            categories_text = response.choices[0].message.content.strip()
+            categories = [cat.strip() for cat in categories_text.split(',')]
+            
+            # Filter to only valid categories
+            valid_categories = set()
+            for category in categories:
+                if category in SUBREDDIT_CATEGORIES:
+                    valid_categories.add(category)
+            
+            return valid_categories
+            
+        except Exception as e:
+            print(f"Error identifying categories: {e}")
+            return set()
     
     def chunk_large_dataset(self, posts: List[Dict[str, Any]], max_chunk_size: int = CHUNK_SIZE) -> List[List[Dict[str, Any]]]:
         """Break large Reddit datasets into manageable chunks for LLM analysis"""
@@ -137,48 +224,105 @@ class ResearchAgent(BaseAgent):
     def generate_search_keywords(self, idea_data: Dict[str, Any]) -> List[str]:
         """Generate relevant search keywords from the clarified idea"""
         
+        idea_text = idea_data.get('refined_idea', '')
+        target_market = idea_data.get('target_market', '')
+        
+        # Extract core concepts from the idea
+        core_concepts = self.extract_core_concepts(idea_text, target_market)
+        
         prompt = f"""
-        Based on this business idea, generate 10-15 relevant search keywords for Reddit research:
+        Based on this business idea, generate 15-20 highly specific and relevant search keywords for Reddit research:
 
-        IDEA: {idea_data.get('refined_idea', 'Unknown')}
-        TARGET MARKET: {idea_data.get('target_market', 'Unknown')}
-        VALUE PROPOSITIONS: {idea_data.get('value_propositions', [])}
+        IDEA: {idea_text}
+        TARGET MARKET: {target_market}
+        CORE CONCEPTS: {core_concepts}
 
         Generate keywords that would help find:
-        1. People discussing similar problems
-        2. Market needs and pain points
-        3. Existing solutions and their limitations
-        4. Customer feedback and complaints
-        5. Industry trends and discussions
+        1. People discussing similar problems or needs
+        2. Market pain points and frustrations
+        3. Related tools, platforms, or solutions
+        4. User feedback, complaints, and feature requests
+        5. Industry trends, discussions, and debates
+        6. Competitor analysis and alternatives
+        7. Technical challenges and implementation issues
 
+        Focus on specific, actionable keywords that would appear in Reddit discussions.
+        Include both broad and niche terms.
         Return as JSON array of strings:
         ["keyword1", "keyword2", "keyword3", ...]
         """
         
         messages = [
-            {"role": "system", "content": "You are an expert at identifying relevant search terms for market research."},
+            {"role": "system", "content": "You are an expert in market research and keyword generation for business idea validation. Generate specific, relevant keywords that would help find Reddit discussions about similar problems, needs, and solutions."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        response = self.call_llm(messages, temperature=0.4)
+        result = self.parse_json_response(response)
+        print(f"research search keywords result: {result}")
+        
+        if isinstance(result, list):
+            # Remove duplicates and limit
+            unique_keywords = list(dict.fromkeys(result))  # Preserves order
+            self.log_activity("Generated search keywords", len(unique_keywords))
+            return unique_keywords[:20]
+        
+        # Fallback keywords based on core concepts
+        fallback_keywords = []
+        for concept in core_concepts[:5]:
+            fallback_keywords.extend([concept, f"{concept} problem", f"{concept} solution", f"{concept} tool"])
+        
+        return fallback_keywords[:15]
+    
+    def extract_core_concepts(self, idea_text: str, target_market: str) -> List[str]:
+        """Extract core concepts from the idea for better keyword generation"""
+        
+        prompt = f"""
+        Extract 5-8 core concepts from this business idea that would be relevant for market research:
+
+        IDEA: {idea_text}
+        TARGET MARKET: {target_market}
+
+        Focus on:
+        - Main product/service concepts
+        - Target user problems
+        - Key technologies or platforms
+        - Industry or domain terms
+        - Unique value propositions
+
+        Return as JSON array of strings:
+        ["concept1", "concept2", "concept3", ...]
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert at extracting core business concepts from ideas for market research purposes."},
             {"role": "user", "content": prompt}
         ]
         
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
-        print(f"research search keywords result: {result}")
         
         if isinstance(result, list):
-            self.log_activity("Generated search keywords", len(result))
-            return result
+            return result[:8]
         
-        # Fallback keywords
-        return ["business", "startup", "entrepreneur", "problem", "solution"]
+        # Simple fallback extraction
+        words = re.findall(r'\b\w+\b', f"{idea_text} {target_market}".lower())
+        # Filter out common words and get unique terms
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can'}
+        concepts = [word for word in words if word not in stop_words and len(word) > 3]
+        return list(set(concepts))[:8]
     
-    def search_reddit_posts(self, keywords: List[str]) -> List[Dict[str, Any]]:
-        """Search Reddit posts using the generated keywords"""
+    def search_reddit_posts(self, keywords: List[str], idea_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Search Reddit posts using the generated keywords and dynamically selected subreddits"""
         if not self.reddit:
             return []
         
+        # Get relevant subreddits based on the idea
+        relevant_subreddits = self.select_relevant_subreddits(idea_data)
+        
         all_posts = []
         
-        for subreddit_name in RESEARCH_SUBREDDITS:
+        for subreddit_name in relevant_subreddits:
             try:
                 subreddit = self.reddit.subreddit(subreddit_name)
                 
@@ -216,19 +360,34 @@ class ResearchAgent(BaseAgent):
         if len(combined_text) < 50:
             return None
         
-        # Calculate keyword relevance
-        keyword_matches = sum(1 for word in keyword.lower().split() if word in combined_text)
+        # Calculate keyword relevance with better matching
+        keyword_words = keyword.lower().split()
+        keyword_matches = sum(1 for word in keyword_words if word in combined_text)
+        
+        # Calculate phrase matches (for multi-word keywords)
+        phrase_matches = 0
+        if len(keyword_words) > 1:
+            phrase_matches = combined_text.count(keyword.lower())
         
         # Calculate sentiment
         sentiment_data = self.calculate_sentiment_score(combined_text)
         
-        # Calculate relevance score
+        # Enhanced relevance scoring
         relevance_score = (
-            keyword_matches * 3 +
+            keyword_matches * 2 +  # Individual word matches
+            phrase_matches * 5 +   # Exact phrase matches (higher weight)
             (1 if sentiment_data['compound'] < -0.1 else 0) * 2 +  # Negative sentiment indicates problems
-            min(post.num_comments, 10) * 0.5 +  # Engagement
-            min(post.score, 50) * 0.3  # Upvotes
+            min(post.num_comments, 20) * 0.3 +  # Engagement (capped at 20)
+            min(post.score, 100) * 0.2  # Upvotes (capped at 100)
         )
+        
+        # Additional relevance boost for specific content types
+        if any(word in combined_text for word in ['problem', 'issue', 'challenge', 'difficulty', 'frustration']):
+            relevance_score += 3
+        if any(word in combined_text for word in ['solution', 'tool', 'platform', 'app', 'service']):
+            relevance_score += 2
+        if any(word in combined_text for word in ['need', 'want', 'looking for', 'searching']):
+            relevance_score += 2
         
         return {
             'post_id': post.id,
@@ -244,7 +403,9 @@ class ResearchAgent(BaseAgent):
             'relevance_score': relevance_score,
             'sentiment_data': sentiment_data,
             'is_problem_discussion': sentiment_data['compound'] < -0.1,
-            'engagement_level': 'high' if post.num_comments > 10 else 'medium' if post.num_comments > 3 else 'low'
+            'engagement_level': 'high' if post.num_comments > 10 else 'medium' if post.num_comments > 3 else 'low',
+            'keyword_matches': keyword_matches,
+            'phrase_matches': phrase_matches
         }
     
     def calculate_sentiment_score(self, text: str) -> Dict[str, float]:
@@ -387,8 +548,8 @@ class ResearchAgent(BaseAgent):
         # Generate search keywords
         keywords = self.generate_search_keywords(idea_data)
         
-        # Search Reddit posts
-        posts = self.search_reddit_posts(keywords)
+        # Search Reddit posts using dynamically selected subreddits
+        posts = self.search_reddit_posts(keywords, idea_data)
         
         # Check if dataset is large and needs chunking
         if len(posts) > LARGE_DATASET_THRESHOLD:

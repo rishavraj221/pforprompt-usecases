@@ -139,7 +139,7 @@ class IdeaPotentialPipeline:
     
     def generate_report(self, clarification_data: Dict[str, Any], research_data: Dict[str, Any], 
                        validation_data: Dict[str, Any], roadmap_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Step 5: Generate comprehensive analysis report"""
+        """Step 5: Generate comprehensive analysis report (JSON only)"""
         
         # Generate comprehensive report
         report_result = self.report_builder.generate_comprehensive_report(
@@ -149,18 +149,10 @@ class IdeaPotentialPipeline:
         if "error" in report_result:
             return report_result
         
-        # Create markdown report
-        markdown_content = self.report_builder.create_markdown_report(report_result, clarification_data)
-        
-        # Save report to file with idea name
-        idea_name = clarification_data.get('refined_idea', 'Unknown')
-        report_filepath = self.report_builder.save_report(markdown_content, idea_name)
-        
-        # Store report data
+        # Store report data (JSON only, no markdown)
         self.pipeline_data['report'] = {
             'report_data': report_result,
-            'markdown_content': markdown_content,
-            'filepath': report_filepath
+            'filepath': 'JSON report only - no markdown generated'
         }
         self.current_step = "report"
         
@@ -220,7 +212,7 @@ class IdeaPotentialPipeline:
                 "authenticity": refinement_data.get('final_summary', {}).get('authenticity_assessment', 'Unknown'),
                 "final_recommendation": refinement_data.get('final_summary', {}).get('final_recommendation', 'Unknown')
             },
-            "report_filepath": report_data.get('filepath', 'Not saved'),
+            "report_filepath": report_data.get('filepath', 'JSON report only'),
             "detailed_data": {
                 "clarification": clarification_data,
                 "research": research_data,

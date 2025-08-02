@@ -106,7 +106,10 @@ class ClarifierAgent(BaseAgent):
         return {"error": "No more questions to ask"}
     
     def generate_clarification_summary(self) -> Dict[str, Any]:
-        """Generate a summary of all clarifications made"""
+        """Generate a summary of all clarifications made with detailed user personas"""
+        
+        # First, develop detailed user personas
+        user_personas = self.develop_user_personas()
         
         prompt = f"""
         Based on the following idea and user responses, create a comprehensive summary of the clarified idea:
@@ -119,23 +122,27 @@ class ClarifierAgent(BaseAgent):
         for i, (question, response) in enumerate(zip(self.questions_asked, self.user_responses)):
             prompt += f"\nQ{i+1}: {question['question']}\nA{i+1}: {response}\n"
         
-        prompt += """
+        prompt += f"""
+        USER PERSONAS DEVELOPED:
+        {user_personas}
+
         Create a comprehensive summary that includes:
         1. Refined idea description
-        2. Target market identification
+        2. Target market identification with detailed user personas
         3. Key value propositions
         4. Potential challenges
         5. Next steps for validation
 
         Return as JSON:
-        {
+        {{
             "refined_idea": "Clear description of the idea after clarification",
             "target_market": "Identified target market",
+            "user_personas": {user_personas},
             "value_propositions": ["List of key value propositions"],
             "potential_challenges": ["List of potential challenges"],
             "validation_priorities": ["List of what needs to be validated"],
             "status": "clarified"
-        }
+        }}
         """
         
         messages = [
@@ -151,6 +158,78 @@ class ClarifierAgent(BaseAgent):
             self.log_activity("Generated clarification summary")
         
         return result or {"error": "Failed to generate clarification summary"}
+    
+    def develop_user_personas(self) -> Dict[str, Any]:
+        """Develop detailed user personas for the business idea"""
+        
+        prompt = f"""
+        Develop detailed user personas for this business idea:
+
+        IDEA: {self.idea_context.get("idea_summary", "Unknown")}
+        TARGET MARKET: {self.idea_context.get("analysis", "Unknown")}
+        USER RESPONSES: {self.user_responses}
+
+        Create 3-5 detailed user personas that represent the target market. For each persona, include:
+
+        Return as JSON:
+        {{
+            "primary_personas": [
+                {{
+                    "name": "Persona name",
+                    "role": "Job title/role",
+                    "age_range": "Age range",
+                    "experience_level": "Experience level",
+                    "company_size": "Company size they work for",
+                    "industry": "Industry they work in",
+                    "goals": ["List of primary goals"],
+                    "pain_points": ["List of pain points"],
+                    "motivations": ["List of motivations"],
+                    "frustrations": ["List of frustrations"],
+                    "tech_savviness": "high|medium|low",
+                    "budget": "budget_range",
+                    "decision_making_factors": ["List of factors that influence decisions"],
+                    "daily_workflow": "Description of typical daily workflow",
+                    "tools_they_use": ["List of current tools they use"],
+                    "challenges_they_face": ["List of specific challenges"],
+                    "success_metrics": ["How they measure success"],
+                    "communication_preferences": ["How they prefer to communicate"],
+                    "learning_style": "How they prefer to learn new things",
+                    "quote": "A representative quote from this persona"
+                }}
+            ],
+            "secondary_personas": [
+                {{
+                    "name": "Persona name",
+                    "role": "Job title/role",
+                    "relationship_to_primary": "How they relate to primary personas",
+                    "influence_level": "high|medium|low",
+                    "goals": ["List of goals"],
+                    "pain_points": ["List of pain points"],
+                    "motivations": ["List of motivations"]
+                }}
+            ],
+            "persona_insights": {{
+                "common_characteristics": ["Characteristics shared across personas"],
+                "key_differences": ["Key differences between personas"],
+                "unified_needs": ["Needs that all personas share"],
+                "persona_priorities": ["Priority order for addressing personas"]
+            }}
+        }}
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert in user research and persona development with deep understanding of various industries and user types."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        response = self.call_llm(messages, temperature=0.4)
+        result = self.parse_json_response(response)
+        
+        if result:
+            self.log_activity("Developed user personas")
+            return result
+        
+        return {"error": "Failed to develop user personas"}
     
     def get_clarification_status(self) -> Dict[str, Any]:
         """Get current status of clarification process"""

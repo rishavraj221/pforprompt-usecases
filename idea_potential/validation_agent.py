@@ -9,7 +9,13 @@ class ValidationAgent(BaseAgent):
         self.validation_matrix = {}
         
     def create_validation_matrix(self, idea_data: Dict[str, Any], research_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a comprehensive validation matrix for the idea"""
+        """Create a comprehensive validation matrix for the idea with enhanced competitor and market analysis"""
+        
+        # First, conduct enhanced competitor analysis
+        competitor_analysis = self.analyze_competitors(idea_data, research_data)
+        
+        # Estimate market size
+        market_size_estimate = self.estimate_market_size(idea_data, research_data)
         
         prompt = f"""
         Create a comprehensive validation matrix for this business idea based on the provided data:
@@ -26,10 +32,17 @@ class ValidationAgent(BaseAgent):
         - Competition Analysis: {research_data.get('insights', {}).get('competition_analysis', 'Unknown')}
         - Customer Sentiment: {research_data.get('insights', {}).get('customer_sentiment', 'Unknown')}
 
+        COMPETITOR ANALYSIS:
+        {competitor_analysis}
+
+        MARKET SIZE ESTIMATE:
+        {market_size_estimate}
+
         Create a validation matrix with the following structure:
         {{
             "market_validation": {{
                 "score": 0-10,
+                "market_size": "Estimated market size and growth potential",
                 "evidence": ["List of supporting evidence"],
                 "risks": ["List of market risks"],
                 "confidence_level": "high|medium|low",
@@ -52,6 +65,7 @@ class ValidationAgent(BaseAgent):
             }},
             "competitive_advantage": {{
                 "score": 0-10,
+                "competitors": ["List of identified competitors"],
                 "differentiators": ["List of competitive advantages"],
                 "barriers_to_entry": ["List of entry barriers"],
                 "sustainable_advantage": "Assessment of sustainability",
@@ -89,6 +103,140 @@ class ValidationAgent(BaseAgent):
             self.log_activity("Created validation matrix")
         
         return result or {"error": "Failed to create validation matrix"}
+    
+    def analyze_competitors(self, idea_data: Dict[str, Any], research_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze competitors in the specific domain"""
+        
+        prompt = f"""
+        Conduct a comprehensive competitor analysis for this business idea:
+
+        IDEA: {idea_data.get('refined_idea', 'Unknown')}
+        TARGET MARKET: {idea_data.get('target_market', 'Unknown')}
+        VALUE PROPOSITIONS: {idea_data.get('value_propositions', [])}
+
+        RESEARCH INSIGHTS:
+        {research_data.get('insights', {})}
+
+        Analyze the competitive landscape and provide:
+        1. Direct competitors (same product/service)
+        2. Indirect competitors (alternative solutions)
+        3. Potential future competitors
+        4. Competitive advantages and disadvantages
+        5. Market positioning opportunities
+
+        Return as JSON:
+        {{
+            "direct_competitors": [
+                {{
+                    "name": "Competitor name",
+                    "description": "What they do",
+                    "strengths": ["List of strengths"],
+                    "weaknesses": ["List of weaknesses"],
+                    "market_share": "Estimated market share",
+                    "pricing": "Pricing model",
+                    "target_audience": "Their target audience"
+                }}
+            ],
+            "indirect_competitors": [
+                {{
+                    "name": "Competitor name",
+                    "description": "What they do",
+                    "how_they_compete": "How they compete",
+                    "threat_level": "high|medium|low"
+                }}
+            ],
+            "competitive_advantages": ["List of potential advantages"],
+            "competitive_disadvantages": ["List of potential disadvantages"],
+            "market_gaps": ["List of market gaps to exploit"],
+            "positioning_strategy": "Recommended positioning strategy"
+        }}
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert competitive analyst with deep knowledge of various industries and market dynamics."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        response = self.call_llm(messages, temperature=0.3)
+        result = self.parse_json_response(response)
+        
+        if result:
+            self.log_activity("Conducted competitor analysis")
+            return result
+        
+        return {"error": "Failed to analyze competitors"}
+    
+    def estimate_market_size(self, idea_data: Dict[str, Any], research_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Estimate market size and growth potential"""
+        
+        prompt = f"""
+        Estimate the market size and growth potential for this business idea:
+
+        IDEA: {idea_data.get('refined_idea', 'Unknown')}
+        TARGET MARKET: {idea_data.get('target_market', 'Unknown')}
+        VALUE PROPOSITIONS: {idea_data.get('value_propositions', [])}
+
+        RESEARCH INSIGHTS:
+        {research_data.get('insights', {})}
+
+        Provide a comprehensive market size analysis including:
+        1. Total Addressable Market (TAM)
+        2. Serviceable Addressable Market (SAM)
+        3. Serviceable Obtainable Market (SOM)
+        4. Market growth rate and trends
+        5. Geographic market breakdown
+        6. Customer segment analysis
+
+        Return as JSON:
+        {{
+            "total_addressable_market": {{
+                "size": "Market size in USD",
+                "description": "What this includes",
+                "growth_rate": "Annual growth rate",
+                "trends": ["Key market trends"]
+            }},
+            "serviceable_addressable_market": {{
+                "size": "Market size in USD",
+                "description": "What this includes",
+                "percentage_of_tam": "Percentage of TAM"
+            }},
+            "serviceable_obtainable_market": {{
+                "size": "Market size in USD",
+                "description": "What this includes",
+                "percentage_of_sam": "Percentage of SAM",
+                "timeframe": "Time to achieve this"
+            }},
+            "customer_segments": [
+                {{
+                    "segment": "Segment name",
+                    "size": "Segment size",
+                    "characteristics": ["Key characteristics"],
+                    "willingness_to_pay": "high|medium|low"
+                }}
+            ],
+            "geographic_breakdown": {{
+                "primary_markets": ["List of primary markets"],
+                "secondary_markets": ["List of secondary markets"],
+                "emerging_markets": ["List of emerging markets"]
+            }},
+            "market_growth_factors": ["List of factors driving growth"],
+            "market_risks": ["List of market risks"]
+        }}
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert market analyst with experience in market sizing and growth analysis across various industries."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        response = self.call_llm(messages, temperature=0.3)
+        result = self.parse_json_response(response)
+        
+        if result:
+            self.log_activity("Estimated market size")
+            return result
+        
+        return {"error": "Failed to estimate market size"}
     
     def generate_swot_analysis(self, idea_data: Dict[str, Any], research_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a SWOT analysis for the idea"""

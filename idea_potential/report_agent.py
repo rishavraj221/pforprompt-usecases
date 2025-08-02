@@ -20,6 +20,9 @@ class ReportAgent(BaseAgent):
         user_feedback = research_data.get('insights', {}).get('user_feedback', {})
         references = research_data.get('references', [])
         
+        # First, create comprehensive financial models
+        financial_models = self.create_financial_models(idea_data, research_data, validation_data)
+        
         prompt = f"""
         Create a comprehensive business idea analysis report based on all the collected data:
 
@@ -47,6 +50,9 @@ class ReportAgent(BaseAgent):
         - Development Roadmap: {roadmap_data.get('development_roadmap', {})}
         - Priority Matrix: {roadmap_data.get('priority_matrix', {})}
         - Resource Plan: {roadmap_data.get('resource_plan', {})}
+
+        FINANCIAL MODELS:
+        {financial_models}
 
         Create a comprehensive report in JSON format:
         {{
@@ -93,7 +99,8 @@ class ReportAgent(BaseAgent):
                 "cost_structure": "Cost structure analysis",
                 "profitability_projection": "Profitability projection",
                 "funding_requirements": "Funding requirements",
-                "break_even_analysis": "Break-even analysis"
+                "break_even_analysis": "Break-even analysis",
+                "financial_models": {financial_models}
             }},
             "risk_assessment": {{
                 "market_risks": ["List of market risks"],
@@ -143,6 +150,155 @@ class ReportAgent(BaseAgent):
             self.log_activity("Generated comprehensive report")
         
         return result or {"error": "Failed to generate comprehensive report"}
+    
+    def create_financial_models(self, idea_data: Dict[str, Any], research_data: Dict[str, Any], validation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create comprehensive financial models with realistic projections"""
+        
+        prompt = f"""
+        Create comprehensive financial models and projections for this business idea:
+
+        IDEA: {idea_data.get('refined_idea', 'Unknown')}
+        TARGET MARKET: {idea_data.get('target_market', 'Unknown')}
+        VALUE PROPOSITIONS: {idea_data.get('value_propositions', [])}
+
+        RESEARCH INSIGHTS:
+        {research_data.get('insights', {})}
+
+        VALIDATION DATA:
+        {validation_data}
+
+        Create detailed financial models including:
+
+        Return as JSON:
+        {{
+            "revenue_model": {{
+                "pricing_strategy": "Recommended pricing strategy",
+                "revenue_streams": [
+                    {{
+                        "stream": "Revenue stream name",
+                        "description": "Description of revenue stream",
+                        "pricing_model": "Subscription|one_time|usage_based|freemium",
+                        "target_customers": "Target customer segment",
+                        "estimated_arpu": "Average revenue per user",
+                        "growth_rate": "Expected growth rate"
+                    }}
+                ],
+                "market_penetration": "Estimated market penetration strategy",
+                "pricing_tiers": [
+                    {{
+                        "tier": "Tier name",
+                        "price": "Price point",
+                        "features": ["List of features"],
+                        "target_audience": "Target audience"
+                    }}
+                ]
+            }},
+            "cost_structure": {{
+                "fixed_costs": [
+                    {{
+                        "category": "Cost category",
+                        "description": "Description of cost",
+                        "monthly_amount": "Monthly cost",
+                        "annual_amount": "Annual cost",
+                        "growth_rate": "Expected growth rate"
+                    }}
+                ],
+                "variable_costs": [
+                    {{
+                        "category": "Cost category",
+                        "description": "Description of cost",
+                        "per_unit_cost": "Cost per unit",
+                        "scaling_factor": "How it scales with growth"
+                    }}
+                ],
+                "development_costs": [
+                    {{
+                        "phase": "Development phase",
+                        "description": "Description of costs",
+                        "estimated_cost": "Estimated cost",
+                        "timeline": "Expected timeline"
+                    }}
+                ]
+            }},
+            "financial_projections": {{
+                "year_1": {{
+                    "revenue": "Projected revenue",
+                    "costs": "Projected costs",
+                    "profit_loss": "Projected profit/loss",
+                    "cash_flow": "Projected cash flow",
+                    "key_metrics": ["Key financial metrics"]
+                }},
+                "year_2": {{
+                    "revenue": "Projected revenue",
+                    "costs": "Projected costs",
+                    "profit_loss": "Projected profit/loss",
+                    "cash_flow": "Projected cash flow",
+                    "key_metrics": ["Key financial metrics"]
+                }},
+                "year_3": {{
+                    "revenue": "Projected revenue",
+                    "costs": "Projected costs",
+                    "profit_loss": "Projected profit/loss",
+                    "cash_flow": "Projected cash flow",
+                    "key_metrics": ["Key financial metrics"]
+                }}
+            }},
+            "unit_economics": {{
+                "customer_acquisition_cost": "Estimated CAC",
+                "lifetime_value": "Estimated LTV",
+                "ltv_cac_ratio": "LTV/CAC ratio",
+                "payback_period": "Customer payback period",
+                "churn_rate": "Expected churn rate",
+                "retention_rate": "Expected retention rate"
+            }},
+            "funding_requirements": {{
+                "seed_round": {{
+                    "amount": "Funding amount needed",
+                    "purpose": "What the funding is for",
+                    "timeline": "When funding is needed",
+                    "use_of_funds": ["How funds will be used"]
+                }},
+                "series_a": {{
+                    "amount": "Funding amount needed",
+                    "purpose": "What the funding is for",
+                    "timeline": "When funding is needed",
+                    "use_of_funds": ["How funds will be used"]
+                }},
+                "break_even_analysis": {{
+                    "break_even_point": "When break-even is expected",
+                    "break_even_revenue": "Revenue needed to break even",
+                    "break_even_customers": "Customers needed to break even",
+                    "assumptions": ["Key assumptions"]
+                }}
+            }},
+            "key_metrics": {{
+                "revenue_metrics": ["List of key revenue metrics"],
+                "growth_metrics": ["List of key growth metrics"],
+                "efficiency_metrics": ["List of key efficiency metrics"],
+                "customer_metrics": ["List of key customer metrics"]
+            }},
+            "sensitivity_analysis": {{
+                "best_case": "Best case scenario projections",
+                "worst_case": "Worst case scenario projections",
+                "most_likely": "Most likely scenario projections",
+                "key_assumptions": ["Key assumptions that could impact projections"]
+            }}
+        }}
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert financial analyst and startup consultant with deep experience in financial modeling, unit economics, and startup financing."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        response = self.call_llm(messages, temperature=0.3)
+        result = self.parse_json_response(response)
+        
+        if result:
+            self.log_activity("Created financial models")
+            return result
+        
+        return {"error": "Failed to create financial models"}
     
     def create_markdown_report(self, report_data: Dict[str, Any], idea_data: Dict[str, Any]) -> str:
         """Create a formatted markdown report"""
