@@ -3,6 +3,7 @@ from typing import Dict, List, Any
 from datetime import datetime
 import os
 import re
+from idea_potential.structured_outputs import ComprehensiveReportResponse, ReportSection
 
 class ReportAgent(BaseAgent):
     """Agent responsible for building comprehensive analysis reports"""
@@ -54,102 +55,119 @@ class ReportAgent(BaseAgent):
         FINANCIAL MODELS:
         {financial_models}
 
-        Create a comprehensive report in JSON format:
-        {{
-            "executive_summary": {{
-                "idea_overview": "Brief overview of the idea",
-                "key_findings": ["List of key findings"],
-                "recommendation": "go|proceed_with_caution|reconsider|abandon",
-                "confidence_level": "high|medium|low",
-                "next_steps": ["List of immediate next steps"]
-            }},
-            "quantitative_analysis": {{
-                "posts_analyzed": "Number of Reddit posts analyzed",
-                "engagement_metrics": "Engagement analysis with numbers",
-                "sentiment_analysis": "Sentiment breakdown with percentages",
-                "top_performing_content": "Analysis of high-engagement posts",
-                "subreddit_distribution": "Distribution across subreddits",
-                "market_validation_score": "Quantitative market validation score"
-            }},
-            "user_feedback_analysis": {{
-                "what_people_are_saying": "Analysis of user comments and discussions",
-                "expressed_needs": ["List of needs users explicitly mentioned"],
-                "pain_points": ["List of problems users are facing"],
-                "feature_requests": ["List of features users want"],
-                "common_complaints": ["List of user complaints"],
-                "user_sentiment_summary": "Overall user sentiment analysis"
-            }},
-            "market_analysis": {{
-                "market_size": "Assessment of market size",
-                "target_audience": "Detailed target audience analysis",
-                "competition_landscape": "Competitive analysis",
-                "market_trends": "Relevant market trends",
-                "customer_pain_points": ["List of identified pain points"],
-                "market_opportunity": "Market opportunity assessment"
-            }},
-            "technical_analysis": {{
-                "technical_feasibility": "Technical feasibility assessment",
-                "technology_requirements": ["List of technology requirements"],
-                "development_complexity": "Development complexity assessment",
-                "technical_risks": ["List of technical risks"],
-                "scalability_considerations": "Scalability assessment"
-            }},
-            "financial_analysis": {{
-                "revenue_potential": "Revenue potential assessment",
-                "cost_structure": "Cost structure analysis",
-                "profitability_projection": "Profitability projection",
-                "funding_requirements": "Funding requirements",
-                "break_even_analysis": "Break-even analysis",
-                "financial_models": {financial_models}
-            }},
-            "risk_assessment": {{
-                "market_risks": ["List of market risks"],
-                "technical_risks": ["List of technical risks"],
-                "financial_risks": ["List of financial risks"],
-                "competitive_risks": ["List of competitive risks"],
-                "operational_risks": ["List of operational risks"],
-                "overall_risk_level": "low|medium|high"
-            }},
-            "strategic_recommendations": {{
-                "immediate_actions": ["List of immediate actions"],
-                "short_term_strategy": "Short-term strategy",
-                "long_term_strategy": "Long-term strategy",
-                "success_factors": ["List of critical success factors"],
-                "pivot_considerations": ["List of potential pivots"]
-            }},
-            "implementation_roadmap": {{
-                "phase_1": "Phase 1 description and timeline",
-                "phase_2": "Phase 2 description and timeline",
-                "phase_3": "Phase 3 description and timeline",
-                "phase_4": "Phase 4 description and timeline",
-                "critical_milestones": ["List of critical milestones"],
-                "resource_requirements": "Overall resource requirements"
-            }},
-            "success_metrics": {{
-                "key_performance_indicators": ["List of KPIs"],
-                "success_criteria": ["List of success criteria"],
-                "measurement_framework": "How to measure success"
-            }},
-            "references": {{
-                "reddit_posts_analyzed": {len(references)},
-                "reference_list": ["List of Reddit URLs and titles"]
-            }}
-        }}
+        Create a comprehensive report with the following structure:
+        - executive_summary: Executive summary of the report
+        - sections: Array of report sections
+        - key_findings: Array of key findings
+        - recommendations: Array of strategic recommendations
+        - appendices: Object with supporting data
+
+        Each section should include:
+        - title: Section title
+        - content: Section content
+        - key_insights: Array of key insights
+        - data_sources: Array of data sources
+
+        Please respond with valid JSON format containing all the report components.
         """
         
         messages = [
-            {"role": "system", "content": "You are an expert business analyst and consultant specializing in comprehensive business idea analysis and reporting."},
+            {"role": "system", "content": "You are an expert business analyst and report writer specializing in startup idea validation and market analysis."},
             {"role": "user", "content": prompt}
         ]
         
+        try:
+            # Try structured output first
+            result = self.call_llm_structured(messages, ComprehensiveReportResponse, temperature=0.3)
+            
+            if result:
+                # Convert Pydantic model to dict for compatibility
+                report_data = result.dict()
+                self.report_data = report_data
+                self.log_activity("Generated comprehensive report", f"Key findings: {len(report_data.get('key_findings', []))}")
+                return report_data
+                
+        except Exception as e:
+            print(f"Error generating comprehensive report with structured output: {e}")
+        
+        # Fallback to regular LLM call
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
+        
+        if result:
+            # Fix common report issues in the result
+            result = self._fix_report_data(result)
         
         if result:
             self.report_data = result
             self.log_activity("Generated comprehensive report")
         
         return result or {"error": "Failed to generate comprehensive report"}
+    
+    def _fix_report_data(self, report_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Fix common report data issues"""
+        try:
+            # Handle case where the result is nested under 'report' or has section names as keys
+            if 'report' in report_data:
+                report_data = report_data['report']
+            
+            # Check if the data is structured with section names as keys
+            if isinstance(report_data, dict) and any(key.lower() in ['executive summary', 'quantitative analysis', 'market analysis'] for key in report_data.keys()):
+                # Convert section-based structure to expected format
+                new_report_data = {
+                    'executive_summary': "Executive summary",
+                    'sections': [],
+                    'key_findings': [],
+                    'recommendations': [],
+                    'appendices': {}
+                }
+                
+                # Convert sections
+                for section_name, section_content in report_data.items():
+                    if isinstance(section_content, dict):
+                        section = {
+                            'title': section_name,
+                            'content': str(section_content),
+                            'key_insights': [],
+                            'data_sources': []
+                        }
+                        new_report_data['sections'].append(section)
+                
+                report_data = new_report_data
+            
+            # Ensure required fields exist
+            if 'executive_summary' not in report_data:
+                report_data['executive_summary'] = "Executive summary"
+            
+            if 'sections' not in report_data:
+                report_data['sections'] = []
+            
+            if 'key_findings' not in report_data:
+                report_data['key_findings'] = []
+            
+            if 'recommendations' not in report_data:
+                report_data['recommendations'] = []
+            
+            if 'appendices' not in report_data:
+                report_data['appendices'] = {}
+            
+            # Fix sections if they exist
+            if 'sections' in report_data and isinstance(report_data['sections'], list):
+                for section in report_data['sections']:
+                    if isinstance(section, dict):
+                        if 'title' not in section:
+                            section['title'] = "Section"
+                        if 'content' not in section:
+                            section['content'] = "Section content"
+                        if 'key_insights' not in section:
+                            section['key_insights'] = []
+                        if 'data_sources' not in section:
+                            section['data_sources'] = []
+            
+            return report_data
+        except Exception as e:
+            print(f"Error fixing report data: {e}")
+            return report_data
     
     def create_financial_models(self, idea_data: Dict[str, Any], research_data: Dict[str, Any], validation_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create comprehensive financial models with realistic projections"""

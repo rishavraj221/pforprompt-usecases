@@ -1,5 +1,9 @@
 from idea_potential.base_agent import BaseAgent
 from typing import Dict, List, Any
+from idea_potential.structured_outputs import (
+    ValidationMatrixResponse, CompetitorAnalysisResponse, MarketSizeEstimateResponse,
+    SWOTAnalysisResponse, RiskAssessmentResponse
+)
 
 class ValidationAgent(BaseAgent):
     """Agent responsible for creating validation matrices and frameworks"""
@@ -39,55 +43,62 @@ class ValidationAgent(BaseAgent):
         {market_size_estimate}
 
         Create a validation matrix with the following structure:
-        {{
-            "market_validation": {{
-                "score": 0-10,
-                "market_size": "Estimated market size and growth potential",
-                "evidence": ["List of supporting evidence"],
-                "risks": ["List of market risks"],
-                "confidence_level": "high|medium|low",
-                "recommendations": ["List of recommendations"]
-            }},
-            "technical_feasibility": {{
-                "score": 0-10,
-                "requirements": ["List of technical requirements"],
-                "challenges": ["List of technical challenges"],
-                "confidence_level": "high|medium|low",
-                "recommendations": ["List of recommendations"]
-            }},
-            "financial_viability": {{
-                "score": 0-10,
-                "revenue_potential": "Assessment of revenue potential",
-                "cost_structure": "Assessment of costs",
-                "profitability": "Assessment of profitability",
-                "confidence_level": "high|medium|low",
-                "recommendations": ["List of recommendations"]
-            }},
-            "competitive_advantage": {{
-                "score": 0-10,
-                "competitors": ["List of identified competitors"],
-                "differentiators": ["List of competitive advantages"],
-                "barriers_to_entry": ["List of entry barriers"],
-                "sustainable_advantage": "Assessment of sustainability",
-                "confidence_level": "high|medium|low",
-                "recommendations": ["List of recommendations"]
-            }},
-            "customer_adoption": {{
-                "score": 0-10,
-                "customer_segments": ["List of customer segments"],
-                "adoption_barriers": ["List of adoption barriers"],
-                "value_perception": "Assessment of value perception",
-                "confidence_level": "high|medium|low",
-                "recommendations": ["List of recommendations"]
-            }},
-            "overall_assessment": {{
-                "total_score": 0-50,
-                "risk_level": "low|medium|high",
-                "go_no_go": "go|no_go|conditional",
-                "critical_factors": ["List of critical success factors"],
-                "next_steps": ["List of immediate next steps"]
-            }}
-        }}
+        - Market validation (score 0-10, market size, evidence, risks, confidence level, recommendations)
+        - Technical feasibility (score 0-10, requirements, challenges, confidence level, recommendations)
+        - Financial viability (score 0-10, revenue potential, cost structure, profitability, confidence level, recommendations)
+        - Competitive advantage (score 0-10, competitors, differentiators, barriers to entry, sustainable advantage, confidence level, recommendations)
+        - Customer adoption (score 0-10, customer segments, adoption barriers, value perception, confidence level, recommendations)
+        - Overall assessment (total score 0-50, risk level, go/no-go decision, critical factors, next steps)
+
+        Please respond with valid JSON format containing all the validation matrix components.
+        return in following JSON format:
+        market_validation:
+            score: 0-10
+            market_size: str, Market size in USD
+            evidence:[str], List of supporting evidence
+            risks: [str], List of market risks
+            confidence_level: str, high|medium|low
+            recommendations: [str], List of recommendations
+        technical_feasibility:
+            score: 0-10
+            requirements: [str], List of technical requirements
+            challenges: [str], List of technical challenges
+            confidence_level: str, high|medium|low
+            recommendations: [str], List of recommendations
+        financial_viability:
+            score: 0-10
+            revenue_potential: str, Revenue potential in USD
+            cost_structure: str, Cost structure
+            profitability: str, Profitability
+            confidence_level: str, high|medium|low
+            recommendations: [str], List of recommendations
+        competitive_advantage:
+            score: 0-10
+            competitors: [str], List of competitors
+            differentiators: [str], List of competitive advantages
+            barriers_to_entry: [str], List of entry barriers
+            sustainable_advantage: str, Assessment of sustainability
+            confidence_level: str, high|medium|low
+            recommendations: [str], List of recommendations
+        customer_adoption:
+            score: 0-10
+            customer_segments: [str], List of customer segments
+            adoption_barriers: [str], List of adoption barriers
+            value_perception: str, Assessment of value perception
+            confidence_level: str, high|medium|low
+            recommendations: [str], List of recommendations
+        overall_assessment:
+            total_score: 0-50
+            risk_level: str, low|medium|high
+            go_no_go: str, go|no_go|conditional
+            critical_factors: [str], List of critical success factors
+            next_steps: [str], List of immediate next steps
+
+        IMPORTANT: Use exact values for enums:
+        - confidence_level: "high", "medium", or "low" (not "High", "Medium", etc.)
+        - risk_level: "low", "medium", or "high" (not "Low", "Moderate", etc.)
+        - go_no_go: "go", "no_go", or "conditional"
+        - evidence, risks, recommendations, requirements, challenges, competitors, differentiators, barriers_to_entry, customer_segments, adoption_barriers, critical_factors, next_steps: Must be arrays of strings
         """
         
         messages = [
@@ -95,14 +106,129 @@ class ValidationAgent(BaseAgent):
             {"role": "user", "content": prompt}
         ]
         
+        try:
+            # Try structured output first
+            result = self.call_llm_structured(messages, ValidationMatrixResponse, temperature=0.3)
+            
+            if result:
+                # Convert Pydantic model to dict for compatibility
+                validation_matrix = result.dict()
+                self.validation_matrix = validation_matrix
+                self.log_activity("Created validation matrix", f"Total score: {validation_matrix['overall_assessment']['total_score']}")
+                return validation_matrix
+                
+        except Exception as e:
+            print(f"Error creating validation matrix with structured output: {e}")
+        
+        # Fallback to regular LLM call
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
+        
+        if result:
+            # Fix common validation issues in the result
+            result = self._fix_validation_matrix(result)
         
         if result:
             self.validation_matrix = result
             self.log_activity("Created validation matrix")
         
         return result or {"error": "Failed to create validation matrix"}
+    
+    def _fix_validation_matrix(self, matrix_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Fix common validation issues in validation matrix data"""
+        try:
+            # Handle case where the result is nested under 'validation_matrix'
+            if 'validation_matrix' in matrix_data:
+                matrix_data = matrix_data['validation_matrix']
+            
+            # Fix confidence levels
+            for category in ['market_validation', 'technical_feasibility', 'financial_viability', 'competitive_advantage', 'customer_adoption']:
+                if category in matrix_data:
+                    category_data = matrix_data[category]
+                    if isinstance(category_data, dict):
+                        # Fix confidence level
+                        if 'confidence_level' in category_data:
+                            confidence = category_data['confidence_level']
+                            if isinstance(confidence, str):
+                                confidence_lower = confidence.lower()
+                                if 'high' in confidence_lower:
+                                    category_data['confidence_level'] = 'high'
+                                elif 'medium' in confidence_lower or 'moderate' in confidence_lower:
+                                    category_data['confidence_level'] = 'medium'
+                                elif 'low' in confidence_lower:
+                                    category_data['confidence_level'] = 'low'
+                        
+                        # Fix list fields
+                        for field in ['evidence', 'risks', 'recommendations', 'requirements', 'challenges', 'competitors', 'differentiators', 'barriers_to_entry', 'customer_segments', 'adoption_barriers']:
+                            if field in category_data:
+                                value = category_data[field]
+                                if isinstance(value, str):
+                                    # Convert string to list
+                                    category_data[field] = [value]
+                                elif not isinstance(value, list):
+                                    category_data[field] = []
+                        
+                        # Fix string fields that might be lists
+                        string_fields = [
+                            'cost_structure', 'value_perception', 'market_size', 'competitive_landscape', 
+                            'technical_complexity', 'resource_requirements', 'revenue_potential', 
+                            'profitability', 'sustainable_advantage'
+                        ]
+                        for field in string_fields:
+                            if field in category_data:
+                                value = category_data[field]
+                                if isinstance(value, list):
+                                    # Convert list to string
+                                    category_data[field] = ', '.join([str(item) for item in value])
+                                elif not isinstance(value, str):
+                                    category_data[field] = str(value)
+            
+            # Fix overall assessment
+            if 'overall_assessment' in matrix_data:
+                overall = matrix_data['overall_assessment']
+                if isinstance(overall, dict):
+                    # Fix risk level
+                    if 'risk_level' in overall:
+                        risk = overall['risk_level']
+                        if isinstance(risk, str):
+                            risk_lower = risk.lower()
+                            if 'high' in risk_lower:
+                                overall['risk_level'] = 'high'
+                            elif 'medium' in risk_lower or 'moderate' in risk_lower:
+                                overall['risk_level'] = 'medium'
+                            elif 'low' in risk_lower:
+                                overall['risk_level'] = 'low'
+                    
+                    # Fix go_no_go
+                    if 'go_no_go' not in overall:
+                        # Try to infer from other fields
+                        if 'total_score' in overall:
+                            score = overall['total_score']
+                            if isinstance(score, (int, float)):
+                                if score >= 35:
+                                    overall['go_no_go'] = 'go'
+                                elif score >= 25:
+                                    overall['go_no_go'] = 'conditional'
+                                else:
+                                    overall['go_no_go'] = 'no_go'
+                            else:
+                                overall['go_no_go'] = 'conditional'
+                        else:
+                            overall['go_no_go'] = 'conditional'
+                    
+                    # Fix list fields
+                    for field in ['critical_factors', 'next_steps']:
+                        if field in overall:
+                            value = overall[field]
+                            if isinstance(value, str):
+                                overall[field] = [value]
+                            elif not isinstance(value, list):
+                                overall[field] = []
+            
+            return matrix_data
+        except Exception as e:
+            print(f"Error fixing validation matrix: {e}")
+            return matrix_data
     
     def analyze_competitors(self, idea_data: Dict[str, Any], research_data: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze competitors in the specific domain"""

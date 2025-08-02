@@ -11,5 +11,8 @@ vaderSentiment>=3.3.2
 # Additional dependencies for sentiment analysis
 nltk>=3.8.1
 
+# Structured outputs support
+pydantic>=2.0.0
+
 # Environment management
 python-dotenv>=1.0.0 

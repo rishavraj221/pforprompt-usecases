@@ -136,17 +136,19 @@ if __name__ == "__main__":
 # i have an idea to build a platform like stackoverflow for developers, only for their struggle in prompts, llm hallucinations, which can be fixed by tweaking prompt, so community will help user refine prompt to get the expected answer
 # """
 
-#     run_idea_analysis(
-#         idea=idea,
-#         interactive=True,
-#     )
+    idea = "building agentic os"
 
-    from datetime import datetime
-    from idea_potential.generate_comprehensive_reports import main
+    run_idea_analysis(
+        idea=idea,
+        interactive=True,
+    )
 
-    json_file_path = "idea_potential/reports/idea_analysis_results_20250802_180619.json"
-    output_file_path = f"idea_potential/reports/idea_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-    main(json_file_path, output_file_path)
+    # from datetime import datetime
+    # from idea_potential.generate_comprehensive_reports import main
+
+    # json_file_path = "idea_potential/reports/idea_analysis_results_20250802_180619.json"
+    # output_file_path = f"idea_potential/reports/idea_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    # main(json_file_path, output_file_path)
 
     # else:
     #     # Interactive menu

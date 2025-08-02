@@ -10,6 +10,10 @@ from idea_potential.config import (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, SUBRE
                                    KEYWORD_CATEGORY_MAPPING, FALLBACK_SUBREDDITS, MAX_REDDIT_POSTS, 
                                    MIN_RELEVANCE_SCORE, TIME_FILTER, CHUNK_SIZE, 
                                    LARGE_DATASET_THRESHOLD, MIN_ENGAGEMENT_SCORE, MIN_COMMENTS_THRESHOLD)
+from idea_potential.structured_outputs import (
+    KeywordSubredditResponse, CoreConceptsResponse, SearchKeywordsResponse, 
+    ChunkAnalysisResponse, MarketInsightsResponse
+)
 
 class ResearchAgent(BaseAgent):
     """Agent responsible for gathering market intelligence from Reddit"""
@@ -47,13 +51,13 @@ class ResearchAgent(BaseAgent):
         TARGET MARKET: {target_market}
 
         Generate:
-        1. MAXIMUM 5 highly specific keywords that would help find Reddit discussions about:
+        1. MAXIMUM 4 highly specific keywords that would help find Reddit discussions about:
            - Similar problems or pain points
            - Related tools, platforms, or solutions
            - User feedback and complaints
            - Industry trends and discussions
 
-        2. MAXIMUM 5 specific subreddit names (without r/ prefix) where people would discuss:
+        2. MAXIMUM 4 specific subreddit names (without r/ prefix) where people would discuss:
            - Similar problems or needs
            - Related technologies or tools
            - Industry-specific discussions
@@ -62,11 +66,9 @@ class ResearchAgent(BaseAgent):
         Focus on specific, actionable terms that would appear in real Reddit discussions.
         Choose subreddits that are active and relevant to the target market.
 
-        Return as JSON:
-        {{
-            "keywords": ["keyword1", "keyword2", "keyword3", "keyword4"],
-            "subreddits": ["subreddit1", "subreddit2", "subreddit3", "subreddit4"]
-        }}
+        Please respond with valid JSON format containing:
+        - keywords: Array of relevant search keywords (max 5)
+        - subreddits: Array of relevant subreddit names (max 5)
         """
         
         messages = [
@@ -75,16 +77,12 @@ class ResearchAgent(BaseAgent):
         ]
         
         try:
-            response = self.call_llm(messages, temperature=0.3)
-            result = self.parse_json_response(response)
+            # Try structured output first
+            result = self.call_llm_structured(messages, KeywordSubredditResponse, temperature=0.3)
             
-            if isinstance(result, dict):
-                keywords = result.get('keywords', [])
-                subreddits = result.get('subreddits', [])
-                
-                # Ensure we don't exceed limits
-                keywords = keywords[:4] if keywords else []
-                subreddits = subreddits[:4] if subreddits else []
+            if result:
+                keywords = result.keywords[:4] if result.keywords else []
+                subreddits = result.subreddits[:4] if result.subreddits else []
                 
                 print(f"Generated keywords: {keywords}")
                 print(f"Generated subreddits: {subreddits}")
@@ -92,7 +90,7 @@ class ResearchAgent(BaseAgent):
                 return keywords, subreddits
                 
         except Exception as e:
-            print(f"Error generating keywords and subreddits: {e}")
+            print(f"Error generating keywords and subreddits with structured output: {e}")
         
         # Fallback to existing method if LLM generation fails
         print("Falling back to existing keyword and subreddit selection method")
@@ -338,8 +336,9 @@ class ResearchAgent(BaseAgent):
 
             Focus on specific, actionable keywords that would appear in Reddit discussions.
             Include both broad and niche terms.
-            Return as JSON array of strings:
-            ["keyword1", "keyword2", "keyword3", ...]
+
+            Please respond with valid JSON format containing:
+            - keywords: Array of search keywords (max 20)
             """
             
             messages = [
@@ -347,15 +346,18 @@ class ResearchAgent(BaseAgent):
                 {"role": "user", "content": prompt}
             ]
             
-            response = self.call_llm(messages, temperature=0.4)
-            result = self.parse_json_response(response)
-            print(f"research search keywords result: {result}")
-            
-            if isinstance(result, list):
-                # Remove duplicates and limit
-                unique_keywords = list(dict.fromkeys(result))  # Preserves order
-                self.log_activity("Generated search keywords", len(unique_keywords))
-                return unique_keywords[:20]
+            try:
+                # Try structured output first
+                result = self.call_llm_structured(messages, SearchKeywordsResponse, temperature=0.4)
+                
+                if result and result.keywords:
+                    # Remove duplicates and limit
+                    unique_keywords = list(dict.fromkeys(result.keywords))  # Preserves order
+                    self.log_activity("Generated search keywords", len(unique_keywords))
+                    return unique_keywords[:20]
+                    
+            except Exception as e:
+                print(f"Error generating search keywords with structured output: {e}")
             
             # Fallback keywords based on core concepts
             fallback_keywords = []
@@ -382,8 +384,8 @@ class ResearchAgent(BaseAgent):
         - Industry or domain terms
         - Unique value propositions
 
-        Return as JSON array of strings:
-        ["concept1", "concept2", "concept3", ...]
+        Please respond with valid JSON format containing:
+        - concepts: Array of core concepts (max 8)
         """
         
         messages = [
@@ -391,13 +393,17 @@ class ResearchAgent(BaseAgent):
             {"role": "user", "content": prompt}
         ]
         
-        response = self.call_llm(messages, temperature=0.3)
-        result = self.parse_json_response(response)
+        try:
+            # Try structured output first
+            result = self.call_llm_structured(messages, CoreConceptsResponse, temperature=0.3)
+            
+            if result and result.concepts:
+                return result.concepts[:8]
+                
+        except Exception as e:
+            print(f"Error extracting core concepts with structured output: {e}")
         
-        if isinstance(result, list):
-            return result[:8]
-        
-        # Simple fallback extraction
+        # Fallback to simple extraction
         words = re.findall(r'\b\w+\b', f"{idea_text} {target_market}".lower())
         # Filter out common words and get unique terms
         stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can'}

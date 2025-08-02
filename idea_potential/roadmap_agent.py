@@ -1,5 +1,6 @@
 from idea_potential.base_agent import BaseAgent
 from typing import Dict, List, Any
+from idea_potential.structured_outputs import RoadmapResponse, Phase, Milestone
 
 class RoadmapAgent(BaseAgent):
     """Agent responsible for creating priority roadmaps and development plans"""
@@ -34,98 +35,143 @@ class RoadmapAgent(BaseAgent):
         ARCHITECTURE PLAN:
         {architecture_plan}
 
-        Create a comprehensive roadmap in JSON format:
-        {{
-            "technical_foundation": {{
-                "requirements": {technical_requirements},
-                "architecture": {architecture_plan},
-                "technology_stack": ["List of recommended technologies"],
-                "infrastructure_needs": ["List of infrastructure requirements"],
-                "security_requirements": ["List of security requirements"],
-                "scalability_considerations": ["List of scalability considerations"]
-            }},
-            "phase_1_validation": {{
-                "duration": "estimated weeks",
-                "objectives": ["List of validation objectives"],
-                "key_activities": [
-                    {{
-                        "activity": "Description of activity",
-                        "priority": "high|medium|low",
-                        "timeline": "estimated timeline",
-                        "resources_needed": ["List of required resources"],
-                        "success_criteria": ["List of success criteria"]
-                    }}
-                ],
-                "milestones": ["List of key milestones"],
-                "risks": ["List of potential risks"]
-            }},
-            "phase_2_mvp_development": {{
-                "duration": "estimated weeks",
-                "objectives": ["List of MVP development objectives"],
-                "key_activities": [
-                    {{
-                        "activity": "Description of activity",
-                        "priority": "high|medium|low",
-                        "timeline": "estimated timeline",
-                        "resources_needed": ["List of required resources"],
-                        "success_criteria": ["List of success criteria"]
-                    }}
-                ],
-                "milestones": ["List of key milestones"],
-                "risks": ["List of potential risks"]
-            }},
-            "phase_3_market_entry": {{
-                "duration": "estimated weeks",
-                "objectives": ["List of market entry objectives"],
-                "key_activities": [
-                    {{
-                        "activity": "Description of activity",
-                        "priority": "high|medium|low",
-                        "timeline": "estimated timeline",
-                        "resources_needed": ["List of required resources"],
-                        "success_criteria": ["List of success criteria"]
-                    }}
-                ],
-                "milestones": ["List of key milestones"],
-                "risks": ["List of potential risks"]
-            }},
-            "phase_4_scaling": {{
-                "duration": "estimated weeks",
-                "objectives": ["List of scaling objectives"],
-                "key_activities": [
-                    {{
-                        "activity": "Description of activity",
-                        "priority": "high|medium|low",
-                        "timeline": "estimated timeline",
-                        "resources_needed": ["List of required resources"],
-                        "success_criteria": ["List of success criteria"]
-                    }}
-                ],
-                "milestones": ["List of key milestones"],
-                "risks": ["List of potential risks"]
-            }},
-            "overall_timeline": {{
-                "total_duration": "estimated total duration",
-                "critical_path": ["List of critical path activities"],
-                "resource_requirements": "Overall resource assessment",
-                "success_metrics": ["List of key success metrics"]
-            }}
-        }}
+        Create a comprehensive roadmap with the following structure:
+        - phases: Array of development phases
+        - total_timeline: Overall timeline estimate
+        - critical_path: Array of critical path activities
+        - resource_requirements: Object with resource needs
+        - risk_mitigation: Array of risk mitigation strategies
+
+        Each phase should include:
+        - phase_name: Name of the phase
+        - duration: Duration estimate
+        - objectives: Array of objectives
+        - milestones: Array of milestones
+        - key_activities: Array of key activities
+        - success_metrics: Array of success metrics
+
+        Each milestone should include:
+        - title: Milestone title
+        - description: Milestone description
+        - timeline: Timeline for milestone
+        - deliverables: Array of deliverables
+        - success_criteria: Array of success criteria
+        - dependencies: Array of dependencies
+
+        Please respond with valid JSON format containing all the roadmap components.
         """
         
         messages = [
-            {"role": "system", "content": "You are an expert project manager and business strategist specializing in startup development roadmaps."},
+            {"role": "system", "content": "You are an expert in software development roadmaps and technical project planning."},
             {"role": "user", "content": prompt}
         ]
         
+        try:
+            # Try structured output first
+            result = self.call_llm_structured(messages, RoadmapResponse, temperature=0.3)
+            
+            if result:
+                # Convert Pydantic model to dict for compatibility
+                roadmap_data = result.dict()
+                self.roadmap_data = roadmap_data
+                self.log_activity("Created development roadmap", f"Total timeline: {roadmap_data['total_timeline']}")
+                return roadmap_data
+                
+        except Exception as e:
+            print(f"Error creating development roadmap with structured output: {e}")
+        
+        # Fallback to regular LLM call
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
+        
+        if result:
+            # Fix common roadmap issues in the result
+            result = self._fix_roadmap_data(result)
         
         if result:
             self.roadmap_data = result
             self.log_activity("Created development roadmap")
         
         return result or {"error": "Failed to create development roadmap"}
+    
+    def _fix_roadmap_data(self, roadmap_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Fix common roadmap data issues"""
+        try:
+            # Handle case where the result is nested under 'roadmap'
+            if 'roadmap' in roadmap_data:
+                roadmap_data = roadmap_data['roadmap']
+            
+            # Ensure required fields exist
+            if 'phases' not in roadmap_data:
+                roadmap_data['phases'] = []
+            
+            if 'total_timeline' not in roadmap_data:
+                roadmap_data['total_timeline'] = "6-12 months"
+            
+            if 'critical_path' not in roadmap_data:
+                roadmap_data['critical_path'] = []
+            
+            if 'resource_requirements' not in roadmap_data:
+                roadmap_data['resource_requirements'] = {}
+            
+            if 'risk_mitigation' not in roadmap_data:
+                roadmap_data['risk_mitigation'] = []
+            
+            # Fix phases if they exist but are in wrong format
+            if 'phases' in roadmap_data and isinstance(roadmap_data['phases'], list):
+                for phase in roadmap_data['phases']:
+                    if isinstance(phase, dict):
+                        # Ensure phase has required fields
+                        if 'phase_name' not in phase:
+                            phase['phase_name'] = "Development Phase"
+                        if 'duration' not in phase:
+                            phase['duration'] = "2-3 months"
+                        if 'objectives' not in phase:
+                            phase['objectives'] = []
+                        if 'milestones' not in phase:
+                            phase['milestones'] = []
+                        if 'key_activities' not in phase:
+                            phase['key_activities'] = []
+                        if 'success_metrics' not in phase:
+                            phase['success_metrics'] = []
+                        
+                        # Fix milestones if they exist
+                        if 'milestones' in phase and isinstance(phase['milestones'], list):
+                            for milestone in phase['milestones']:
+                                if isinstance(milestone, dict):
+                                    if 'title' not in milestone:
+                                        milestone['title'] = "Milestone"
+                                    if 'description' not in milestone:
+                                        milestone['description'] = "Milestone description"
+                                    if 'timeline' not in milestone:
+                                        milestone['timeline'] = "2 weeks"
+                                    if 'deliverables' not in milestone:
+                                        milestone['deliverables'] = []
+                                    if 'success_criteria' not in milestone:
+                                        milestone['success_criteria'] = []
+                                    if 'dependencies' not in milestone:
+                                        milestone['dependencies'] = []
+            
+            # Fix risk_mitigation - convert dicts to strings
+            if 'risk_mitigation' in roadmap_data and isinstance(roadmap_data['risk_mitigation'], list):
+                fixed_risk_mitigation = []
+                for item in roadmap_data['risk_mitigation']:
+                    if isinstance(item, dict):
+                        # Extract the risk description from the dict
+                        if 'risk' in item:
+                            fixed_risk_mitigation.append(str(item['risk']))
+                        else:
+                            fixed_risk_mitigation.append(str(item))
+                    elif isinstance(item, str):
+                        fixed_risk_mitigation.append(item)
+                    else:
+                        fixed_risk_mitigation.append(str(item))
+                roadmap_data['risk_mitigation'] = fixed_risk_mitigation
+            
+            return roadmap_data
+        except Exception as e:
+            print(f"Error fixing roadmap data: {e}")
+            return roadmap_data
     
     def create_technical_requirements(self, idea_data: Dict[str, Any], validation_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create detailed technical requirements for the business idea"""

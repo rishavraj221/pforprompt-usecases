@@ -1,5 +1,6 @@
 from idea_potential.base_agent import BaseAgent
 from typing import Dict, List, Any
+from idea_potential.structured_outputs import RefinedIdeaResponse, RefinementSuggestion, ValidationResponse, ValidationIssue
 
 class RefinerAgent(BaseAgent):
     """Agent responsible for refining and validating the final report"""
@@ -39,28 +40,21 @@ class RefinerAgent(BaseAgent):
         4. Completeness of analysis
         5. Accuracy of data interpretation
 
-        Provide validation results in JSON format:
+        Provide validation results in the following JSON format:
         {{
-            "authenticity_score": "0-10 rating",
-            "consistency_check": {{
-                "research_to_report": "high|medium|low",
-                "validation_to_recommendations": "high|medium|low",
-                "overall_consistency": "high|medium|low"
-            }},
-            "data_quality": {{
-                "completeness": "high|medium|low",
-                "accuracy": "high|medium|low",
-                "relevance": "high|medium|low"
-            }},
-            "identified_issues": [
-                {{
-                    "issue": "Description of issue",
-                    "severity": "high|medium|low",
-                    "recommendation": "How to address"
-                }}
-            ],
-            "strengths": ["List of report strengths"],
-            "validation_recommendation": "accept|revise|reject"
+          "authenticity_score": <0-10 integer>,
+          "consistency_check": "<detailed assessment of consistency>",
+          "data_quality": "<assessment of data quality>",
+          "identified_issues": [
+            {{
+              "issue": "<description of issue>",
+              "severity": "<high/medium/low>",
+              "recommendation": "<recommendation to fix>"
+            }}
+          ],
+          "report_strengths": ["<strength1>", "<strength2>", ...],
+          "validation_recommendation": "<accept/revise/reject>",
+          "overall_assessment": "<overall assessment of report quality>"
         }}
         """
         
@@ -69,13 +63,93 @@ class RefinerAgent(BaseAgent):
             {"role": "user", "content": prompt}
         ]
         
+        # Try structured output first
+        result = self.call_llm_structured(messages, ValidationResponse, temperature=0.3)
+        
+        if result:
+            # Convert Pydantic model to dict for compatibility
+            validation_data = result.dict()
+            self.log_activity("Validated report authenticity")
+            return validation_data
+        
+        # Fallback to regular LLM call
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
         
         if result:
+            # Fix common refiner issues in the result
+            result = self._fix_refiner_data(result)
+        
+        if result:
             self.log_activity("Validated report authenticity")
+            # Log the authenticity validation report
+            print(f"\n🔍 AUTHENTICITY VALIDATION REPORT:")
+            if 'authenticity_score' in result:
+                print(f"   📊 Authenticity Score: {result['authenticity_score']}/10")
+            if 'validation_recommendation' in result:
+                print(f"   ✅ Recommendation: {result['validation_recommendation']}")
+            if 'identified_issues' in result:
+                print(f"   ⚠️  Issues Found: {len(result['identified_issues'])}")
+                for i, issue in enumerate(result['identified_issues'], 1):
+                    print(f"      {i}. {issue}")
+            if 'consistency_check' in result:
+                print(f"   🔄 Consistency: {result['consistency_check']}")
+            if 'data_quality' in result:
+                print(f"   📈 Data Quality: {result['data_quality']}")
+            print()
         
         return result or {"error": "Failed to validate report authenticity"}
+    
+    def _fix_refiner_data(self, refiner_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Fix common refiner data issues"""
+        try:
+            # Handle case where the result is nested under validation keys
+            if 'validation_matrix' in refiner_data:
+                refiner_data = refiner_data['validation_matrix']
+            
+            # Ensure required fields exist for ValidationResponse
+            if 'authenticity_score' not in refiner_data:
+                refiner_data['authenticity_score'] = 5  # Default medium score
+            
+            if 'consistency_check' not in refiner_data:
+                refiner_data['consistency_check'] = "Consistency assessment needed"
+            
+            if 'data_quality' not in refiner_data:
+                refiner_data['data_quality'] = "Data quality assessment needed"
+            
+            if 'identified_issues' not in refiner_data:
+                refiner_data['identified_issues'] = []
+            elif isinstance(refiner_data['identified_issues'], list):
+                # Ensure each issue has the required structure
+                for i, issue in enumerate(refiner_data['identified_issues']):
+                    if isinstance(issue, dict):
+                        if 'issue' not in issue:
+                            issue['issue'] = f"Issue {i+1}"
+                        if 'severity' not in issue:
+                            issue['severity'] = 'medium'
+                        if 'recommendation' not in issue:
+                            issue['recommendation'] = "Recommendation needed"
+                    else:
+                        # Convert string issue to proper structure
+                        refiner_data['identified_issues'][i] = {
+                            'issue': str(issue),
+                            'severity': 'medium',
+                            'recommendation': 'Investigate further'
+                        }
+            
+            if 'report_strengths' not in refiner_data:
+                refiner_data['report_strengths'] = []
+            
+            if 'validation_recommendation' not in refiner_data:
+                refiner_data['validation_recommendation'] = 'revise'
+            
+            if 'overall_assessment' not in refiner_data:
+                refiner_data['overall_assessment'] = "Overall assessment needed"
+            
+            return refiner_data
+        except Exception as e:
+            print(f"Error fixing refiner data: {e}")
+            return refiner_data
     
     def cross_check_claims(self, report_data: Dict[str, Any], research_data: Dict[str, Any]) -> Dict[str, Any]:
         """Cross-check specific claims in the report against research data"""

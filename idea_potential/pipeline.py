@@ -181,47 +181,95 @@ class IdeaPotentialPipeline:
                             report_data: Dict[str, Any], refinement_data: Dict[str, Any]) -> Dict[str, Any]:
         """Compile all results into a final comprehensive output"""
         
-        # Create final summary
+        # Create final summary with safe data access
         final_summary = {
             "analysis_timestamp": datetime.now().isoformat(),
             "pipeline_status": "completed",
-            "idea_summary": clarification_data.get('refined_idea', 'Unknown'),
-            "target_market": clarification_data.get('target_market', 'Unknown'),
+            "idea_summary": clarification_data.get('refined_idea', 'Unknown') if isinstance(clarification_data, dict) else str(clarification_data),
+            "target_market": clarification_data.get('target_market', 'Unknown') if isinstance(clarification_data, dict) else 'Unknown',
             "executive_summary": {
-                "recommendation": report_data['report_data'].get('executive_summary', {}).get('recommendation', 'Unknown'),
-                "confidence_level": report_data['report_data'].get('executive_summary', {}).get('confidence_level', 'Unknown'),
-                "key_findings": report_data['report_data'].get('executive_summary', {}).get('key_findings', [])
+                "recommendation": "Unknown",
+                "confidence_level": "Unknown", 
+                "key_findings": []
             },
             "validation_summary": {
-                "overall_score": validation_data.get('validation_summary', {}).get('overall_validation_score', 'Unknown'),
-                "risk_level": validation_data.get('validation_summary', {}).get('risk_level', 'Unknown'),
-                "recommendation": validation_data.get('validation_summary', {}).get('validation_recommendation', 'Unknown')
+                "overall_score": "Unknown",
+                "risk_level": "Unknown",
+                "recommendation": "Unknown"
             },
             "research_summary": {
-                "posts_analyzed": research_data.get('insights', {}).get('posts_analyzed', 0),
-                "market_validation": research_data.get('insights', {}).get('market_validation', 'Unknown'),
-                "pain_points_identified": research_data.get('insights', {}).get('pain_points_identified', [])
+                "posts_analyzed": 0,
+                "market_validation": "Unknown",
+                "pain_points_identified": []
             },
             "roadmap_summary": {
-                "overall_timeline": roadmap_data.get('roadmap_summary', {}).get('overall_timeline', 'Unknown'),
-                "key_phases": roadmap_data.get('roadmap_summary', {}).get('key_phases', []),
-                "critical_milestones": roadmap_data.get('roadmap_summary', {}).get('critical_milestones', [])
+                "overall_timeline": "Unknown",
+                "key_phases": [],
+                "critical_milestones": []
             },
             "refinement_summary": {
-                "quality_score": refinement_data.get('final_summary', {}).get('overall_quality_score', 'Unknown'),
-                "authenticity": refinement_data.get('final_summary', {}).get('authenticity_assessment', 'Unknown'),
-                "final_recommendation": refinement_data.get('final_summary', {}).get('final_recommendation', 'Unknown')
+                "quality_score": "Unknown",
+                "authenticity": "Unknown",
+                "final_recommendation": "Unknown"
             },
-            "report_filepath": report_data.get('filepath', 'JSON report only'),
+            "report_filepath": "JSON report only",
             "detailed_data": {
                 "clarification": clarification_data,
                 "research": research_data,
                 "validation": validation_data,
                 "roadmap": roadmap_data,
-                "report": report_data['report_data'],
+                "report": report_data,
                 "refinement": refinement_data
             }
         }
+        
+        # Safely extract data from report_data
+        if isinstance(report_data, dict):
+            if 'report_data' in report_data and isinstance(report_data['report_data'], dict):
+                report_content = report_data['report_data']
+                if 'executive_summary' in report_content and isinstance(report_content['executive_summary'], dict):
+                    final_summary["executive_summary"] = {
+                        "recommendation": report_content['executive_summary'].get('recommendation', 'Unknown'),
+                        "confidence_level": report_content['executive_summary'].get('confidence_level', 'Unknown'),
+                        "key_findings": report_content['executive_summary'].get('key_findings', [])
+                    }
+            final_summary["report_filepath"] = report_data.get('filepath', 'JSON report only')
+        
+        # Safely extract data from validation_data
+        if isinstance(validation_data, dict):
+            if 'validation_summary' in validation_data and isinstance(validation_data['validation_summary'], dict):
+                final_summary["validation_summary"] = {
+                    "overall_score": validation_data['validation_summary'].get('overall_validation_score', 'Unknown'),
+                    "risk_level": validation_data['validation_summary'].get('risk_level', 'Unknown'),
+                    "recommendation": validation_data['validation_summary'].get('validation_recommendation', 'Unknown')
+                }
+        
+        # Safely extract data from research_data
+        if isinstance(research_data, dict):
+            if 'insights' in research_data and isinstance(research_data['insights'], dict):
+                final_summary["research_summary"] = {
+                    "posts_analyzed": research_data['insights'].get('posts_analyzed', 0),
+                    "market_validation": research_data['insights'].get('market_validation', 'Unknown'),
+                    "pain_points_identified": research_data['insights'].get('pain_points_identified', [])
+                }
+        
+        # Safely extract data from roadmap_data
+        if isinstance(roadmap_data, dict):
+            if 'roadmap_summary' in roadmap_data and isinstance(roadmap_data['roadmap_summary'], dict):
+                final_summary["roadmap_summary"] = {
+                    "overall_timeline": roadmap_data['roadmap_summary'].get('overall_timeline', 'Unknown'),
+                    "key_phases": roadmap_data['roadmap_summary'].get('key_phases', []),
+                    "critical_milestones": roadmap_data['roadmap_summary'].get('critical_milestones', [])
+                }
+        
+        # Safely extract data from refinement_data
+        if isinstance(refinement_data, dict):
+            if 'final_summary' in refinement_data and isinstance(refinement_data['final_summary'], dict):
+                final_summary["refinement_summary"] = {
+                    "quality_score": refinement_data['final_summary'].get('overall_quality_score', 'Unknown'),
+                    "authenticity": refinement_data['final_summary'].get('authenticity_assessment', 'Unknown'),
+                    "final_recommendation": refinement_data['final_summary'].get('final_recommendation', 'Unknown')
+                }
         
         # Save final results to JSON file
         self.save_final_results(final_summary)

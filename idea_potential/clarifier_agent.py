@@ -1,6 +1,9 @@
 from idea_potential.base_agent import BaseAgent
 from idea_potential.suggester_agent import SuggesterAgent
 from typing import Dict, List, Optional, Any
+from idea_potential.structured_outputs import (
+    IdeaAnalysisResponse, ClarificationSummaryResponse, UserPersona
+)
 
 class ClarifierAgent(BaseAgent):
     """Agent responsible for clarifying and understanding the user's idea through targeted questions"""
@@ -27,18 +30,15 @@ class ClarifierAgent(BaseAgent):
         2. Value proposition and differentiation
         3. Feasibility and resources needed
 
-        Return your response as JSON with this structure:
-        {{
-            "analysis": "Brief analysis of the idea",
-            "critical_questions": [
-                {{
-                    "question": "The question text",
-                    "reason": "Why this question is critical",
-                    "category": "market|value_proposition|feasibility"
-                }}
-            ],
-            "idea_summary": "One sentence summary of the idea"
-        }}
+        Please respond with valid JSON format containing:
+        - analysis: Brief analysis of the idea
+        - critical_questions: Array of 3 questions with question, reason, and category fields
+        - idea_summary: One sentence summary of the idea
+
+        For the category field, use exactly one of these values:
+        - "market" for questions about target market, customers, or market validation
+        - "value_proposition" for questions about value proposition, differentiation, or competitive advantage
+        - "feasibility" for questions about technical feasibility, resources, or implementation
         """
         
         messages = [
@@ -46,10 +46,42 @@ class ClarifierAgent(BaseAgent):
             {"role": "user", "content": prompt}
         ]
         
+        try:
+            # Try structured output first
+            result = self.call_llm_structured(messages, IdeaAnalysisResponse, temperature=0.3)
+            
+            if result:
+                self.idea_context = {
+                    "analysis": result.analysis,
+                    "critical_questions": [q.dict() for q in result.critical_questions],
+                    "idea_summary": result.idea_summary
+                }
+                self.log_activity("Analyzed initial idea", result.idea_summary)
+                return self.idea_context
+                
+        except Exception as e:
+            print(f"Error analyzing initial idea with structured output: {e}")
+        
+        # Fallback to regular LLM call
         response = self.call_llm(messages, temperature=0.3)
         result = self.parse_json_response(response)
         
         if result:
+            # Ensure the result has the expected structure
+            if "critical_questions" in result:
+                # Convert category values to proper enum values if needed
+                for question in result.get("critical_questions", []):
+                    if "category" in question:
+                        category = question["category"]
+                        if isinstance(category, str):
+                            category_lower = category.lower()
+                            if "market" in category_lower or "target" in category_lower:
+                                question["category"] = "market"
+                            elif "value" in category_lower or "proposition" in category_lower:
+                                question["category"] = "value_proposition"
+                            elif "feasibility" in category_lower or "resources" in category_lower:
+                                question["category"] = "feasibility"
+            
             self.idea_context = result
             self.log_activity("Analyzed initial idea", result.get("idea_summary"))
         
