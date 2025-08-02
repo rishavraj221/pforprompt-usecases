@@ -1,17 +1,64 @@
 # Idea Potential Analysis System
 
-A comprehensive AI-powered system to analyze and validate business ideas through market research, validation frameworks, and strategic planning.
+A comprehensive AI-powered system to analyze and validate business ideas through market research, validation frameworks, and strategic planning. This system uses a pipeline of specialized AI agents to thoroughly evaluate business ideas and provide actionable insights.
 
 ## 🎯 Overview
 
-This system uses a pipeline of specialized AI agents to thoroughly analyze business ideas:
+The Idea Potential Analysis System is designed to help entrepreneurs, innovators, and business professionals validate their ideas through a systematic, AI-driven approach. It combines market research, validation frameworks, strategic planning, and comprehensive reporting to provide a complete picture of a business idea's potential.
 
-1. **Clarifier Agent** - Asks critical questions to understand the idea
-2. **Research Agent** - Gathers market intelligence from Reddit
-3. **Validation Agent** - Creates validation matrices and SWOT analysis
-4. **Roadmap Agent** - Builds development roadmaps and priority matrices
-5. **Report Agent** - Generates comprehensive analysis reports
-6. **Refiner Agent** - Cross-checks and validates the final report
+### Key Features
+
+- **Multi-Agent Pipeline**: Six specialized AI agents working in sequence
+- **Market Research**: Automated Reddit analysis for real-time market insights
+- **Validation Frameworks**: Comprehensive validation matrices and SWOT analysis
+- **Strategic Planning**: Development roadmaps and priority matrices
+- **Comprehensive Reporting**: Detailed markdown reports with actionable insights
+- **Interactive Mode**: Guided analysis with clarification questions
+
+## 🏗️ Architecture
+
+### System Flow
+
+```
+Raw Idea Input → Clarifier Agent → Research Agent → Validation Agent → Roadmap Agent → Report Agent → Refiner Agent → Final Report
+```
+
+### Agent Pipeline
+
+1. **Clarifier Agent** (`clarifier_agent.py`)
+   - Analyzes initial idea and asks targeted questions
+   - Refines idea description and identifies target market
+   - Uses GPT-4o-mini for cost-effective Q&A
+
+2. **Research Agent** (`research_agent.py`)
+   - Conducts market research using Reddit data
+   - Analyzes sentiment, engagement, and market trends
+   - Identifies pain points and market opportunities
+   - Uses GPT-4o for complex analysis
+
+3. **Validation Agent** (`validation_agent.py`)
+   - Creates comprehensive validation frameworks
+   - Generates validation matrices and SWOT analysis
+   - Assesses market, technical, financial, and competitive risks
+   - Uses GPT-4o for strategic analysis
+
+4. **Roadmap Agent** (`roadmap_agent.py`)
+   - Builds development roadmaps and priority matrices
+   - Creates 4-phase development timeline
+   - Plans resource allocation and milestones
+   - Uses GPT-4o for strategic planning
+
+5. **Report Agent** (`report_agent.py`)
+   - Generates comprehensive analysis reports
+   - Creates executive summaries and detailed analysis
+   - Formats data into structured markdown reports
+   - Uses GPT-4o for detailed report generation
+
+6. **Refiner Agent** (`refiner_agent.py`)
+   - Cross-checks and validates final reports
+   - Identifies gaps and inconsistencies
+   - Provides refinement recommendations
+   - Uses GPT-4o for quality assurance
 
 ## 🚀 Quick Start
 
@@ -23,122 +70,88 @@ This system uses a pipeline of specialized AI agents to thoroughly analyze busin
 
 ### Installation
 
-The project uses `uv` for dependency management. All dependencies are already configured in `pyproject.toml`.
+The project uses `uv` for dependency management. All dependencies are configured in `pyproject.toml`.
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd pforprompts-usecases
+
+# Install dependencies
+uv sync
+```
 
 ### Environment Setup
 
-Ensure your `.env` file in the root directory contains:
+Create a `.env` file in the root directory:
+
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
 REDDIT_CLIENT_ID=your_reddit_client_id_here
 REDDIT_CLIENT_SECRET=your_reddit_client_secret_here
 ```
 
-### Usage
+## 📖 Usage Examples
 
-#### Interactive Menu
-```bash
-uv run main.py
+### Example 1: Basic Idea Analysis
+
+```python
+from idea_potential import run_idea_analysis
+
+# Analyze a business idea
+idea = "A mobile app that helps people find local farmers markets"
+results = run_idea_analysis(idea=idea)
+
+# Access results
+print(f"Recommendation: {results['executive_summary']['recommendation']}")
+print(f"Confidence: {results['executive_summary']['confidence_level']}")
+print(f"Validation Score: {results['validation_summary']['overall_score']}/10")
 ```
 
-#### Direct Idea Analysis
-```bash
-uv run main.py "Your business idea here"
+### Example 2: Interactive Analysis
+
+```python
+from idea_potential import run_idea_analysis
+
+# Run interactive analysis with clarification questions
+results = run_idea_analysis(interactive=True)
 ```
 
-#### Interactive Mode (with clarification questions)
-```bash
-uv run main.py --idea-potential --interactive
+### Example 3: Direct Pipeline Usage
+
+```python
+from idea_potential.pipeline import IdeaPotentialPipeline
+
+# Initialize pipeline
+pipeline = IdeaPotentialPipeline()
+
+# Run complete analysis
+results = pipeline.start_analysis("Your business idea here")
+
+# Access individual step results
+clarification = pipeline.get_step_data('clarification')
+research = pipeline.get_step_data('research')
+validation = pipeline.get_step_data('validation')
 ```
 
-#### Command Line Options
+### Example 4: Command Line Usage
+
 ```bash
-# Run idea potential analysis
-uv run main.py --idea-potential "Your idea here"
-
-# Run interactive idea potential analysis
-uv run main.py --idea-potential --interactive
-
-# Run idea refinement engine
-uv run main.py --idea-refinement
-```
-
-#### Example
-```bash
+# Basic analysis
 uv run main.py "A mobile app that helps people find local farmers markets"
+
+# Interactive mode
+uv run main.py --idea-potential --interactive
+
+# Direct idea potential analysis
+uv run main.py --idea-potential "Your idea here"
 ```
 
-## 📋 System Flow
+## 📊 Output Structure
 
-```
-A[Raw Idea Input] --> B{Idea Clarifier Agent}
-B -->|1-3 Critical Questions| U[User]
-U -->|Answers| B
-B --> C[Smart Research Agent]
-C --> D[Validation Matrix Generator]
-D --> E[Priority Roadmap Builder]
-E --> F[Report Builder]
-F --> G[Report Refiner Agent]
-```
+### Report Files
 
-## 🤖 Agent Details
-
-### 1. Clarifier Agent
-- **Model**: GPT-4o-mini
-- **Purpose**: Asks targeted questions to understand the idea
-- **Output**: Refined idea description, target market, value propositions
-
-### 2. Research Agent
-- **Model**: GPT-4o
-- **Purpose**: Gathers market intelligence from Reddit
-- **Features**: 
-  - Searches relevant subreddits
-  - Analyzes sentiment and engagement
-  - Identifies pain points and market needs
-- **Output**: Market insights, pain points, competition analysis
-
-### 3. Validation Agent
-- **Model**: GPT-4o
-- **Purpose**: Creates comprehensive validation frameworks
-- **Output**: 
-  - Validation matrix (market, technical, financial, competitive, customer adoption)
-  - SWOT analysis
-  - Risk assessment
-
-### 4. Roadmap Agent
-- **Model**: GPT-4o
-- **Purpose**: Creates development roadmaps and priority matrices
-- **Output**: 
-  - 4-phase development roadmap
-  - Priority matrix for tasks
-  - Resource planning
-  - Milestone timeline
-
-### 5. Report Agent
-- **Model**: GPT-4o
-- **Purpose**: Generates comprehensive analysis reports
-- **Output**: 
-  - Executive summary
-  - Market analysis
-  - Technical analysis
-  - Financial analysis
-  - Risk assessment
-  - Strategic recommendations
-  - Implementation roadmap
-  - Success metrics
-
-### 6. Refiner Agent
-- **Model**: GPT-4o
-- **Purpose**: Cross-checks and validates the final report
-- **Features**:
-  - Validates authenticity and consistency
-  - Cross-checks claims against research data
-  - Identifies gaps and improvements
-  - Provides refinement recommendations
-
-## 📊 Output Files
-
-The system generates output files in the `idea_potential/reports/` directory:
+The system generates two types of output files in the `idea_potential/reports/` directory:
 
 1. **Markdown Report** (`{IdeaNameInCamelCase}_ddmmyy_hhmm.md`)
    - Comprehensive analysis report
@@ -151,14 +164,46 @@ The system generates output files in the `idea_potential/reports/` directory:
    - All agent outputs
    - Structured data for further processing
 
-### Example Filename
-- Idea: "A mobile app that helps people find local farmers markets"
-- Filename: `AMobileAppThatHelpsPeopleFindLocalFarmersMarkets_251224_1430.md`
+### Example Output Structure
+
+```json
+{
+  "idea_summary": "A mobile app that helps people find local farmers markets",
+  "target_market": "Urban consumers interested in local, organic food",
+  "executive_summary": {
+    "recommendation": "PROCEED_WITH_CAUTION",
+    "confidence_level": "medium",
+    "key_findings": [
+      "Strong market need identified",
+      "Moderate competition landscape",
+      "Technical feasibility confirmed"
+    ]
+  },
+  "validation_summary": {
+    "overall_score": 7.5,
+    "risk_level": "medium"
+  },
+  "research_summary": {
+    "posts_analyzed": 45,
+    "market_validation": "Positive sentiment, clear pain points"
+  },
+  "roadmap_summary": {
+    "overall_timeline": "42 weeks",
+    "phases": ["Validation", "MVP Development", "Market Entry", "Scaling"]
+  },
+  "refinement_summary": {
+    "quality_score": 8.5,
+    "authenticity": "high"
+  },
+  "report_filepath": "idea_potential/reports/AMobileAppThatHelpsPeopleFindLocalFarmersMarkets_251224_1430.md"
+}
+```
 
 ## 🔧 Configuration
 
 ### Model Configuration
-Edit `idea_potential/config.py` to customize model choices for each agent:
+
+Edit `idea_potential/config.py` to customize model choices:
 
 ```python
 MODEL_CONFIG = {
@@ -171,74 +216,113 @@ MODEL_CONFIG = {
 }
 ```
 
-### Reddit Configuration
-Customize subreddits for research in `idea_potential/config.py`:
+### Reddit Research Configuration
+
+Customize subreddits for research:
 
 ```python
-RESEARCH_SUBREDDITS = [
-    'entrepreneur',
-    'startups', 
-    'smallbusiness',
-    'business',
-    'marketing',
-    'productivity',
-    'technology',
-    'webdev',
-    'programming',
-    'SaaS'
-]
+SUBREDDIT_CATEGORIES = {
+    'business': ['business', 'entrepreneur', 'startups', 'smallbusiness'],
+    'technology': ['technology', 'programming', 'webdev', 'AI'],
+    'finance': ['finance', 'personalfinance', 'investing'],
+    # Add more categories as needed
+}
 ```
 
-## 📈 Example Output
+## 📈 Example Analysis Results
 
-### Executive Summary
+### Executive Summary Example
+
 ```
 📋 Recommendation: PROCEED_WITH_CAUTION
 📋 Confidence Level: medium
 
 🔍 Key Findings:
-  • Strong market need identified
+  • Strong market need identified (83 posts analyzed)
   • Moderate competition landscape
   • Technical feasibility confirmed
   • Financial viability requires validation
+  • Clear pain points: difficulty finding local markets
 ```
 
-### Validation Summary
+### Validation Summary Example
+
 ```
 ✅ Validation Score: 7.5/10
 ✅ Risk Level: medium
+
+📊 Validation Matrix:
+  Market Validation: 8/10
+  Technical Feasibility: 7/10
+  Financial Viability: 6/10
+  Competitive Landscape: 7/10
+  Customer Adoption: 8/10
 ```
 
-### Research Summary
+### Research Summary Example
+
 ```
 📊 Research Results:
-  • Posts Analyzed: 45
+  • Posts Analyzed: 83
+  • Subreddits: 9 different communities
+  • Sentiment: 68.7% positive, 30.1% negative
+  • Engagement Rate: 1092.02
   • Market Validation: Positive sentiment, clear pain points
 ```
 
 ## 🛠️ Customization
 
 ### Adding New Research Sources
-1. Create a new research agent class
-2. Implement the required methods
+
+1. Create a new research agent class inheriting from `BaseAgent`
+2. Implement required methods: `conduct_research()`, `analyze_data()`
 3. Update the pipeline to include the new agent
 
+```python
+class CustomResearchAgent(BaseAgent):
+    def conduct_research(self, clarification_data):
+        # Your custom research logic
+        pass
+    
+    def analyze_data(self, research_data):
+        # Your custom analysis logic
+        pass
+```
+
 ### Customizing Validation Frameworks
-1. Modify the validation agent prompts
-2. Add new validation criteria
-3. Update the validation matrix structure
+
+1. Modify validation agent prompts in `validation_agent.py`
+2. Add new validation criteria to the validation matrix
+3. Update the validation scoring system
 
 ### Extending Report Sections
-1. Modify the report agent prompts
-2. Add new analysis sections
-3. Update the markdown template
+
+1. Modify report agent prompts in `report_agent.py`
+2. Add new analysis sections to the markdown template
+3. Update the report generator in `generate_comprehensive_reports.py`
 
 ## 🧪 Testing
 
-Run the system tests:
+### Running System Tests
+
 ```bash
 cd idea_potential
 python test_system.py
+```
+
+### Testing Individual Agents
+
+```python
+from idea_potential.clarifier_agent import ClarifierAgent
+from idea_potential.research_agent import ResearchAgent
+
+# Test clarifier agent
+clarifier = ClarifierAgent()
+result = clarifier.analyze_initial_idea("Test idea")
+
+# Test research agent
+research = ResearchAgent()
+result = research.conduct_research(clarification_data)
 ```
 
 ## 🔍 Troubleshooting
@@ -261,7 +345,68 @@ python test_system.py
    - Verify Python version (3.8+ required)
 
 ### Debug Mode
-Add debug logging by modifying agent classes to include more detailed logging.
+
+Add debug logging by modifying agent classes:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+class CustomAgent(BaseAgent):
+    def process(self, data):
+        logger.debug(f"Processing data: {data}")
+        # Your processing logic
+```
+
+## 📚 API Reference
+
+### Main Functions
+
+#### `run_idea_analysis(idea=None, interactive=False)`
+
+Main entry point for idea analysis.
+
+**Parameters:**
+- `idea` (str, optional): The business idea to analyze
+- `interactive` (bool): Whether to run in interactive mode
+
+**Returns:**
+- `dict`: Complete analysis results
+
+#### `IdeaPotentialPipeline`
+
+Main pipeline class for orchestrating the analysis.
+
+**Methods:**
+- `start_analysis(idea)`: Run complete analysis pipeline
+- `run_interactive_analysis(idea)`: Run analysis with user interaction
+- `get_step_data(step)`: Get data from specific pipeline step
+- `get_pipeline_status()`: Get current pipeline status
+
+### Agent Classes
+
+#### `ClarifierAgent`
+- `analyze_initial_idea(idea)`: Analyze and clarify the initial idea
+
+#### `ResearchAgent`
+- `conduct_research(clarification_data)`: Conduct market research
+- `analyze_data(research_data)`: Analyze research findings
+
+#### `ValidationAgent`
+- `create_validation_matrix(clarification_data, research_data)`: Create validation framework
+- `generate_swot_analysis(data)`: Generate SWOT analysis
+
+#### `RoadmapAgent`
+- `create_roadmap(clarification_data, validation_data)`: Create development roadmap
+- `generate_priority_matrix(data)`: Generate priority matrix
+
+#### `ReportAgent`
+- `generate_report(clarification_data, research_data, validation_data, roadmap_data)`: Generate comprehensive report
+
+#### `RefinerAgent`
+- `refine_report(report_data, clarification_data, research_data, validation_data)`: Refine and validate report
 
 ## 📝 License
 
@@ -284,4 +429,6 @@ For issues and questions:
 
 ---
 
-**Built with ❤️ for entrepreneurs and innovators** 
+**Built with ❤️ for entrepreneurs and innovators**
+
+*The Idea Potential Analysis System helps you validate your business ideas through comprehensive AI-driven analysis, market research, and strategic planning.* 
